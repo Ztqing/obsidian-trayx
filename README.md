@@ -1,90 +1,161 @@
-# Obsidian Sample Plugin
+<div align="center">
+  <h1>TrayX</h1>
+  <p><strong>A desktop-first Obsidian plugin for keeping the current vault available from the system tray or menu bar.</strong></p>
+  <p>English | <a href="README_ZH.md">中文</a> | <a href="CHANGELOG.md">Changelog</a></p>
+</div>
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+## What it does
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+- Keeps the current desktop vault available from a tray icon on Windows and a menu bar icon on macOS.
+- Shows, hides, and toggles vault visibility from the tray or command palette.
+- Keeps the vault running in the background instead of closing the main window when background mode is enabled.
+- Supports hide-on-launch, launch-on-startup, and optional app icon hiding while TrayX is active.
+- Exposes runtime diagnostics for bridge choice, tray readiness, tray ownership, restore path, icon health, and close interception state.
+- Stays local-only and does not add network requests, telemetry, or remote code execution.
+- Follows the Obsidian interface language at runtime:
+  - Simplified Chinese for all `zh*` language codes
+  - English for every other language
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Project status
 
-## First time developing plugins?
+TrayX already covers the core desktop tray workflow for hiding, restoring, and diagnosing the current vault. The checklist below marks what is already in place and what we expect to keep refining next.
 
-Quick starting guide for new plugin devs:
+- [x] Desktop-only tray integration for the current vault on Windows and menu bar integration on macOS.
+- [x] Commands for toggling, showing, hiding, relaunching, closing, and inspecting the current vault runtime.
+- [x] Settings for tray visibility, background mode, hide on launch, launch on startup, and hiding the app icon.
+- [x] Tray owner coordination so only one live window owns the tray for the same vault at a time.
+- [x] Runtime diagnostics for bridge choice, capability sources, tray state, restore path, close interception, tray path, icon status, and tray bounds.
+- [x] English and Simplified Chinese runtime localization for settings, commands, tray menu labels, notices, and diagnostics.
+- [x] Fake-based unit coverage for tray lifecycle, restore policy, diagnostics, window visibility, and localization behavior.
+- [ ] Continue hardening cross-platform tray and restore behavior through broader manual release validation.
+- [ ] Expand diagnostics and observability around repeated close and restore flows and bridge fallback edge cases.
+- [ ] Refine tray and menu bar polish, especially around icon clarity and platform-specific interaction details.
+- [ ] Keep tightening desktop regression coverage and release guidance as the plugin stabilizes.
+- [ ] Revisit any broader platform or feature expansion only after the current desktop scope remains stable.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+The roadmap prioritizes desktop stability, observability, and predictable recovery paths.
 
-## Releasing new releases
+## Platform and runtime notes
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+- TrayX is desktop-only because it relies on Electron and Node APIs.
+- macOS uses `trayTemplate.png` and `trayTemplate@2x.png` from the plugin root as adaptive template menu bar assets.
+- macOS interaction keeps left-click restore or show and right-click tray menu behavior.
+- Windows uses a generated tray icon and keeps click-to-toggle plus context-menu access.
+- Hiding the app icon is app-wide on macOS and affects Dock visibility for the whole Obsidian app, not just one vault.
+- Tray ownership is synchronized per vault so only one live window is responsible for the tray at a time.
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## Usage
 
-## Adding your plugin to the community plugin list
+1. Enable TrayX in your desktop vault.
+2. Keep **Enable tray icon** turned on if you want tray or menu bar restore access.
+3. Use the tray icon, menu bar icon, or command palette to show, hide, or toggle the current vault.
+4. Turn on **Run in background** if closing the main window should hide the vault instead of quitting it.
+5. Optionally enable **Hide on launch**, **Launch on startup**, or **Hide app icon** depending on how you want Obsidian to behave on your device.
+6. If tray behavior looks wrong, run **Show runtime diagnostics** and review the reported bridge, tray readiness, restore path, and icon state.
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## Settings
 
-## How to use
+| Setting | What it does |
+| --- | --- |
+| Enable tray icon | Show a system tray or menu bar icon for this vault. |
+| Run in background | Hide the window instead of closing it when you close the app window. |
+| Hide on launch | Hide or minimize the window after startup, based on the current background behavior. |
+| Launch on startup | Open the app automatically when you sign in on this device. |
+| Hide app icon | Hide the app from the dock on macOS or hide the window from the taskbar on Windows while TrayX is active. |
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## Commands
 
-## Manually installing the plugin
+- `Toggle vault visibility`
+- `Show vault`
+- `Hide vault`
+- `Relaunch app`
+- `Close vault`
+- `Show runtime diagnostics`
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+TrayX does not register default hotkeys. You can assign your own shortcuts in **Settings → Hotkeys**.
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+## Diagnostics
 
-## Funding URL
+`Show runtime diagnostics` is meant to be the first stop when tray behavior does not match expectations. It reports the current desktop runtime state, including:
 
-You can include funding URLs where people who use your plugin can financially support it.
+- bridge choice
+- capability sources
+- tray readiness
+- tray owner
+- restore path
+- close interception state
+- tray path
+- `trayIconExists`
+- `trayIconEmpty`
+- `trayIconTemplate`
+- tray bounds
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+This is especially useful when the tray icon does not appear, the vault will not restore, or background hiding is being safely downgraded.
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+## Limitations and recovery boundaries
+
+- This release stays within a desktop-only scope and keeps `manifest.json` set to `isDesktopOnly: true`.
+- If no safe restore path is available, TrayX avoids leaving the vault in an unrecoverable background-close state and diagnostics will reflect that degraded mode.
+- Command names follow the Obsidian language at plugin load time. If you change the app language, command labels may require reloading TrayX or restarting Obsidian to refresh everywhere.
+- The tray menu follows the current language when the tray is rebuilt.
+- TrayX manages only the current vault's desktop windows and does not try to coordinate unrelated vaults.
+- No network requests, telemetry, or remote code execution are introduced by this plugin.
+
+## Development
+
+```bash
+npm ci
+npm run dev
 ```
 
-If you have multiple URLs, you can also do:
+Useful commands:
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+- `npm run test:unit`
+- `npm run lint`
+- `npm run build`
 
-## API Documentation
+## Release artifacts
 
-See https://docs.obsidian.md
+For manual installation or release builds, copy these files into:
+
+`<vault>/.obsidian/plugins/trayx/`
+
+- `main.js`
+- `manifest.json`
+- `styles.css`
+- `trayTemplate.png`
+- `trayTemplate@2x.png`
+
+## Release checklist
+
+Before publishing a release, run:
+
+- `npm run test:unit`
+- `npm run lint`
+- `npm run build`
+
+Then verify in a clean desktop vault:
+
+- the plugin loads without a new runtime notice
+- `Show runtime diagnostics` reflects the actual runtime state
+- the tray or menu bar icon is visible and interactive
+- `Cmd+W` close and restore behavior still works as expected
+- `Cmd+Q` and app-menu quit still work correctly
+- repeated close and restore cycles do not create duplicate trays
+- on macOS, the tray asset path is absolute and the template icon is healthy
+- on Windows, the tray icon remains legible at small sizes
+
+## Privacy and safety
+
+- TrayX does not make network requests.
+- TrayX does not collect telemetry.
+- TrayX does not execute remote code.
+- TrayX only manages the current desktop vault windows through local Electron APIs.
+
+## Attribution
+
+TrayX is inspired by and partially adapted from [dragonwocky/obsidian-tray](https://github.com/dragonwocky/obsidian-tray), released under the MIT License.
+
+## License
+
+MIT
