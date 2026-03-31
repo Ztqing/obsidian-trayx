@@ -1,26 +1,23 @@
-# vscode
-.vscode 
-
-# Intellij
+# Editor directories
+.vscode
 *.iml
 .idea
 
-# npm
-node_modules
+# Dependency directories
+node_modules/
 
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
+# Local-only guidance and generated release bundles
+AGENTS.md
 main.js
-
-# Exclude sourcemaps
 *.map
 
-# obsidian
+# Local vault/runtime state
 data.json
-
-# unit tests
-.test-dist/*
-!.test-dist/package.json
-
-# Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Test and build outputs
+.test-dist/
+coverage/
+.eslintcache
+*.log
+*.tsbuildinfo

@@ -17,6 +17,7 @@ All notable user-facing changes for this plugin are documented in this file.
 
 - Release positioning is explicitly desktop-only and keeps `manifest.json` set to `isDesktopOnly: true`.
 - Repository documentation is organized around English README, Chinese README, and a dedicated changelog entry point.
+- Repository history now excludes generated `main.js` bundles and local `AGENTS.md` guidance; release builds should regenerate `main.js` locally or in CI before packaging.
 
 ### Security / Reliability
 

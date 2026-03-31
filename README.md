@@ -114,6 +114,8 @@ Useful commands:
 - `npm run lint`
 - `npm run build`
 
+`main.js` is generated locally or in CI during the build and release flow. The repository tracks the source files and release metadata, but not the generated bundle itself.
+
 ## Release artifacts
 
 For manual installation or release builds, copy these files into:
@@ -133,6 +135,8 @@ Before publishing a release, run:
 - `npm run test:unit`
 - `npm run lint`
 - `npm run build`
+
+The build should regenerate `main.js` before you package or upload release assets.
 
 Then verify in a clean desktop vault:
 

@@ -114,6 +114,8 @@ npm run dev
 - `npm run lint`
 - `npm run build`
 
+`main.js` 会在本地或 CI 的构建与发布流程中生成。仓库只跟踪源码和发布元数据，不跟踪生成后的 bundle 文件本身。
+
 ## 发布文件
 
 手动安装或发布时，请将以下文件复制到：
@@ -133,6 +135,8 @@ npm run dev
 - `npm run test:unit`
 - `npm run lint`
 - `npm run build`
+
+在打包或上传发布资产之前，应先通过构建重新生成 `main.js`。
 
 然后在一个干净的桌面测试库里手动验证：
 
