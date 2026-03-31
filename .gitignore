@@ -4,7 +4,7 @@
 .idea
 
 # Dependency directories
-node_modules/
+node_modules
 
 # Local-only guidance and generated release bundles
 AGENTS.md
@@ -16,7 +16,7 @@ data.json
 .DS_Store
 
 # Test and build outputs
-.test-dist/
+.test-dist
 coverage/
 .eslintcache
 *.log
