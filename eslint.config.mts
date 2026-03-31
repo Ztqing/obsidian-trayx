@@ -8,10 +8,12 @@ export default tseslint.config(
 		languageOptions: {
 			globals: {
 				...globals.browser,
+				...globals.node,
 			},
 			parserOptions: {
 				projectService: {
 					allowDefaultProject: [
+						'tsconfig.test.json',
 						'eslint.config.js',
 						'manifest.json'
 					]
@@ -25,6 +27,7 @@ export default tseslint.config(
 	globalIgnores([
 		"node_modules",
 		"dist",
+		".test-dist",
 		"esbuild.config.mjs",
 		"eslint.config.js",
 		"version-bump.mjs",

@@ -18,5 +18,9 @@ main.js
 # obsidian
 data.json
 
+# unit tests
+.test-dist/*
+!.test-dist/package.json
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
