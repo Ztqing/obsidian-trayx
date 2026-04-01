@@ -26,13 +26,22 @@ import {
 	type TraySnapshot,
 } from "./tray/service";
 
+export type RestoreBlocker =
+	| "hide-app-icon-unsafe"
+	| "missing-tray-restore-path"
+	| "non-owner-window"
+	| "runtime-unavailable"
+	| "tray-refresh-failed";
+
 export interface TrayControllerDerivedState {
 	canHideAppIconSafely: boolean;
 	canRecoverFromHiddenState: boolean;
+	restoreBlocker: RestoreBlocker | null;
 	restorePolicyInput: RestorePolicyInput;
 }
 
 export function buildTrayControllerDerivedState(options: {
+	hideAppIconRequested: boolean;
 	appIconHidden: boolean;
 	ownerSnapshot: TrayOwnerSnapshot;
 	runInBackground: boolean;
@@ -52,6 +61,12 @@ export function buildTrayControllerDerivedState(options: {
 	return {
 		canHideAppIconSafely: canHideAppIconSafely(restorePolicyInput),
 		canRecoverFromHiddenState: canRecoverFromHiddenState(restorePolicyInput),
+		restoreBlocker: buildRestoreBlocker({
+			hideAppIconRequested: options.hideAppIconRequested,
+			ownerSnapshot: options.ownerSnapshot,
+			restorePolicyInput,
+			traySnapshot: options.traySnapshot,
+		}),
 		restorePolicyInput,
 	};
 }
@@ -63,6 +78,7 @@ export function buildTrayControllerDiagnostics(options: {
 	ownerSnapshot: TrayOwnerSnapshot;
 	restorePolicyInput: RestorePolicyInput;
 	runtimeDiagnostics: RuntimeDiagnostics;
+	restoreBlocker: RestoreBlocker | null;
 	traySnapshot?: TraySnapshot;
 }): RuntimeDiagnosticsPayload {
 	const traySnapshot = options.traySnapshot ?? createEmptyTraySnapshot();
@@ -72,6 +88,7 @@ export function buildTrayControllerDiagnostics(options: {
 		isFullScreen: options.isFullScreen,
 		mode: getRuntimeMode(options.restorePolicyInput),
 		ownerSnapshot: options.ownerSnapshot,
+		restoreBlocker: options.restoreBlocker,
 		restorePath: getRestorePathAvailability(options.restorePolicyInput),
 		runtimeDiagnostics: options.runtimeDiagnostics,
 		traySnapshot,
@@ -136,4 +153,42 @@ function buildRestorePolicyInput(options: {
 		trayCreated: options.traySnapshot.trayCreated,
 		trayOwnerWindowId: options.ownerSnapshot.trayOwnerWindowId,
 	};
+}
+
+function buildRestoreBlocker(options: {
+	hideAppIconRequested: boolean;
+	ownerSnapshot: TrayOwnerSnapshot;
+	restorePolicyInput: RestorePolicyInput;
+	traySnapshot: TraySnapshot;
+}): RestoreBlocker | null {
+	if (!options.restorePolicyInput.runtimeAvailable) {
+		return "runtime-unavailable";
+	}
+
+	if (options.traySnapshot.lastTrayError) {
+		return "tray-refresh-failed";
+	}
+
+	if (
+		!options.ownerSnapshot.isTrayOwner &&
+		options.ownerSnapshot.trayOwnerWindowId !== null
+	) {
+		return "non-owner-window";
+	}
+
+	if (
+		options.hideAppIconRequested &&
+		!canHideAppIconSafely(options.restorePolicyInput)
+	) {
+		return "hide-app-icon-unsafe";
+	}
+
+	if (
+		options.restorePolicyInput.runInBackground &&
+		!canRecoverFromHiddenState(options.restorePolicyInput)
+	) {
+		return "missing-tray-restore-path";
+	}
+
+	return null;
 }

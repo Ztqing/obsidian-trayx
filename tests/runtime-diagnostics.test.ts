@@ -26,6 +26,7 @@ void test("buildRuntimeDiagnosticsPayload combines runtime, owner, tray, and lif
 			isTrayOwner: true,
 			trayOwnerWindowId: 5,
 		},
+		restoreBlocker: null,
 		restorePath: "tray",
 		runtimeDiagnostics: {
 			bridgeKind: "host.remote",
@@ -79,6 +80,7 @@ void test("buildRuntimeDiagnosticsPayload exposes the full diagnostics contract"
 		"platform",
 		"previousTrayOwnerDetected",
 		"resolvedTrayIconPath",
+		"restoreBlocker",
 		"restorePath",
 		"trayBounds",
 		"trayCreated",
@@ -88,6 +90,7 @@ void test("buildRuntimeDiagnosticsPayload exposes the full diagnostics contract"
 		"trayIconTemplate",
 		"trayObjectCreated",
 		"trayOwnerWindowId",
+		"trayRefreshError",
 	]);
 });
 
@@ -107,6 +110,7 @@ void test("formatRuntimeDiagnosticsSummary reports core tray and restore state",
 				trayOwnerWindowId: 9,
 			},
 			restorePath: "none",
+			restoreBlocker: "missing-tray-restore-path",
 			runtimeDiagnostics: {
 				bridgeKind: "@electron/remote",
 				capabilitySources: { Tray: "property" },
@@ -118,6 +122,7 @@ void test("formatRuntimeDiagnosticsSummary reports core tray and restore state",
 			},
 			traySnapshot: {
 				...createEmptyTraySnapshot(),
+				lastTrayError: "tray failed",
 				trayIconMode: "none",
 			},
 		}),
@@ -128,7 +133,9 @@ void test("formatRuntimeDiagnosticsSummary reports core tray and restore state",
 	assert.match(summary, /Bridge: @electron\/remote/);
 	assert.match(summary, /Missing: Menu/);
 	assert.match(summary, /Tray owner: 9/);
+	assert.match(summary, /Tray error: tray failed/);
 	assert.match(summary, /Restore: none/);
+	assert.match(summary, /Restore blocker: missing-tray-restore-path/);
 	assert.match(summary, /Mode: safe-close-disabled/);
 	assert.match(summary, /fallback/);
 });
@@ -187,6 +194,7 @@ void test("formatRuntimeDiagnosticsSummary includes the tray template status whe
 				trayIconMode: "file-template",
 				trayIconTemplate: true,
 			},
+			restoreBlocker: null,
 		}),
 		true,
 		"en",
@@ -212,6 +220,7 @@ void test("formatRuntimeDiagnosticsSummary localizes labels while preserving tec
 				trayOwnerWindowId: 9,
 			},
 			restorePath: "none",
+			restoreBlocker: "non-owner-window",
 			runtimeDiagnostics: {
 				bridgeKind: "@electron/remote",
 				capabilitySources: { Tray: "property" },
@@ -235,6 +244,7 @@ void test("formatRuntimeDiagnosticsSummary localizes labels while preserving tec
 	assert.match(summary, /缺失能力: Menu/);
 	assert.match(summary, /托盘: 未就绪/);
 	assert.match(summary, /恢复路径: none/);
+	assert.match(summary, /恢复阻塞原因: non-owner-window/);
 	assert.match(summary, /关闭拦截: 开/);
 	assert.match(summary, /模式: safe-close-disabled/);
 	assert.match(summary, /fallback/);
@@ -291,6 +301,7 @@ void test("formatRuntimeDiagnosticsSummary marks non-owner windows and switches 
 			notes: [],
 			platform: "win32",
 		},
+		restoreBlocker: "non-owner-window",
 	});
 
 	const unavailableSummary = formatRuntimeDiagnosticsSummary(payload, false, "en");
@@ -308,6 +319,7 @@ function createComprehensiveDiagnosticsOptions(): {
 	isFullScreen: boolean;
 	mode: RuntimeDiagnosticsPayload["mode"];
 	ownerSnapshot: ReturnType<typeof createTrayOwnerSnapshot>;
+	restoreBlocker: RuntimeDiagnosticsPayload["restoreBlocker"];
 	restorePath: RuntimeDiagnosticsPayload["restorePath"];
 	runtimeDiagnostics: RuntimeDiagnostics;
 	traySnapshot: ReturnType<typeof createEmptyTraySnapshot>;
@@ -327,6 +339,7 @@ function createComprehensiveDiagnosticsOptions(): {
 			isTrayOwner: true,
 			trayOwnerWindowId: 11,
 		},
+		restoreBlocker: null,
 		restorePath: "tray",
 		runtimeDiagnostics: {
 			bridgeKind: "host.remote",

@@ -81,8 +81,10 @@ TrayX 不提供默认快捷键。你可以在 **设置 → 快捷键** 中自行
 - bridge choice
 - capability sources
 - tray readiness
+- last tray refresh error
 - tray owner
 - restore path
+- restore blocker
 - close interception state
 - tray path
 - `trayIconExists`
@@ -90,7 +92,7 @@ TrayX 不提供默认快捷键。你可以在 **设置 → 快捷键** 中自行
 - `trayIconTemplate`
 - tray bounds
 
-当托盘图标没有出现、当前库无法恢复，或后台隐藏被安全降级时，这个诊断输出尤其有用。
+当托盘图标没有出现、当前库无法恢复，或后台隐藏被安全降级时，这个诊断输出尤其有用，因为它现在也会明确说明最近一次托盘刷新失败，以及当前恢复链路被什么原因阻塞。
 
 ## 当前限制与恢复边界
 

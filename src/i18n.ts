@@ -41,11 +41,13 @@ interface LocalizedStrings {
 		on: string;
 		platform: string;
 		ready: string;
+		restoreBlocker: string;
 		restore: string;
 		sources: string;
 		tray: string;
 		trayBounds: string;
 		trayBridgeReady: string;
+		trayError: string;
 		trayIcon: string;
 		trayIconEmpty: string;
 		trayIconExists: string;
@@ -157,11 +159,13 @@ const STRINGS = {
 			on: "on",
 			platform: "Platform",
 			ready: "ready",
+			restoreBlocker: "Restore blocker",
 			restore: "Restore",
 			sources: "Sources",
 			tray: "Tray",
 			trayBounds: "Tray bounds",
 			trayBridgeReady: "Tray bridge is ready.",
+			trayError: "Tray error",
 			trayIcon: "Tray icon",
 			trayIconEmpty: "Tray icon empty",
 			trayIconExists: "Tray icon exists",
@@ -236,11 +240,13 @@ const STRINGS = {
 			on: "开",
 			platform: "平台",
 			ready: "就绪",
+			restoreBlocker: "恢复阻塞原因",
 			restore: "恢复路径",
 			sources: "来源",
 			tray: "托盘",
 			trayBounds: "托盘边界",
 			trayBridgeReady: "托盘桥接已就绪。",
+			trayError: "托盘错误",
 			trayIcon: "托盘图标",
 			trayIconEmpty: "托盘图标为空",
 			trayIconExists: "托盘图标存在",

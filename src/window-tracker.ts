@@ -6,17 +6,22 @@ export interface WindowTrackingState {
 	windowCleanup: Map<ElectronWindow, Array<() => void>>;
 }
 
+export interface WindowTrackerCallbacks {
+	onFocus?(): void;
+	onTopologyChange?(): void;
+}
+
 export interface AttachTrackedWindowOptions {
-	focusHandler: (() => void) | null;
+	callbacks: WindowTrackerCallbacks | null;
 	onDetachWindow(window: ElectronWindow): void;
 	skipTaskbar: boolean;
 	state: WindowTrackingState;
 	window: ElectronWindow;
 }
 
-export function attachTrackedWindow(options: AttachTrackedWindowOptions): void {
+export function attachTrackedWindow(options: AttachTrackedWindowOptions): boolean {
 	if (options.state.managedWindows.has(options.window) || isDestroyed(options.window)) {
-		return;
+		return false;
 	}
 
 	options.state.managedWindows.add(options.window);
@@ -34,13 +39,17 @@ export function attachTrackedWindow(options: AttachTrackedWindowOptions): void {
 
 	addWindowListener("maximize", () => options.state.maximizedWindows.add(options.window));
 	addWindowListener("unmaximize", () => options.state.maximizedWindows.delete(options.window));
-	addWindowListener("closed", () => options.onDetachWindow(options.window));
+	addWindowListener("closed", () => {
+		options.onDetachWindow(options.window);
+		options.callbacks?.onTopologyChange?.();
+	});
 
-	if (options.focusHandler) {
-		addWindowListener("focus", () => options.focusHandler?.());
+	if (options.callbacks?.onFocus) {
+		addWindowListener("focus", () => options.callbacks?.onFocus?.());
 	}
 
 	options.state.windowCleanup.set(options.window, cleanup);
+	return true;
 }
 
 export function detachTrackedWindow(

@@ -21,6 +21,7 @@ export interface RuntimeDiagnosticsPayload extends RuntimeDiagnostics {
 	pendingMacFullscreenBackground: boolean;
 	previousTrayOwnerDetected: boolean;
 	resolvedTrayIconPath: string | null;
+	restoreBlocker: string | null;
 	restorePath: RestorePath;
 	trayBounds: { height: number; width: number; x: number; y: number } | null;
 	trayCreated: boolean;
@@ -30,6 +31,7 @@ export interface RuntimeDiagnosticsPayload extends RuntimeDiagnostics {
 	trayIconTemplate: boolean | null;
 	trayObjectCreated: boolean;
 	trayOwnerWindowId: number | null;
+	trayRefreshError: string | null;
 }
 
 export function buildRuntimeDiagnosticsPayload(options: {
@@ -38,6 +40,7 @@ export function buildRuntimeDiagnosticsPayload(options: {
 	isFullScreen: boolean;
 	mode: RuntimeMode;
 	ownerSnapshot: TrayOwnerSnapshot;
+	restoreBlocker: string | null;
 	restorePath: RestorePath;
 	runtimeDiagnostics: RuntimeDiagnostics;
 	traySnapshot: TraySnapshot;
@@ -54,6 +57,7 @@ export function buildRuntimeDiagnosticsPayload(options: {
 		pendingMacFullscreenBackground: options.backgroundSnapshot.pendingMacFullscreenBackground,
 		previousTrayOwnerDetected: options.ownerSnapshot.previousTrayOwnerDetected,
 		resolvedTrayIconPath: options.traySnapshot.resolvedTrayIconPath,
+		restoreBlocker: options.restoreBlocker,
 		restorePath: options.restorePath,
 		trayBounds: options.traySnapshot.trayBounds,
 		trayCreated: options.traySnapshot.trayCreated,
@@ -63,6 +67,7 @@ export function buildRuntimeDiagnosticsPayload(options: {
 		trayIconTemplate: options.traySnapshot.trayIconTemplate,
 		trayObjectCreated: options.traySnapshot.trayObjectCreated,
 		trayOwnerWindowId: options.ownerSnapshot.trayOwnerWindowId,
+		trayRefreshError: options.traySnapshot.lastTrayError,
 	};
 }
 
@@ -105,6 +110,9 @@ export function formatRuntimeDiagnosticsSummary(
 	if (diagnostics.trayIconMode) {
 		segments.push(`${strings.trayIcon}: ${diagnostics.trayIconMode}`);
 	}
+	if (diagnostics.trayRefreshError) {
+		segments.push(`${strings.trayError}: ${diagnostics.trayRefreshError}`);
+	}
 	if (diagnostics.resolvedTrayIconPath) {
 		segments.push(`${strings.trayPath}: ${diagnostics.resolvedTrayIconPath}`);
 	}
@@ -123,6 +131,9 @@ export function formatRuntimeDiagnosticsSummary(
 		);
 	}
 	segments.push(`${strings.restore}: ${diagnostics.restorePath}`);
+	if (diagnostics.restoreBlocker) {
+		segments.push(`${strings.restoreBlocker}: ${diagnostics.restoreBlocker}`);
+	}
 	segments.push(
 		`${strings.closeIntercept}: ${diagnostics.closeInterceptionActive ? strings.on : strings.off}`,
 	);

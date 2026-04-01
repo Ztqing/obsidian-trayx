@@ -28,6 +28,8 @@ export interface TrayRefreshOptions {
 }
 
 export interface TraySnapshot extends TrayAssetSnapshot {
+	lastRefreshAttempted: boolean;
+	lastTrayError: string | null;
 	trayBounds: { height: number; width: number; x: number; y: number } | null;
 	trayCreated: boolean;
 	trayObjectCreated: boolean;
@@ -40,6 +42,8 @@ export interface TrayRefreshResult {
 
 export function createEmptyTraySnapshot(): TraySnapshot {
 	return {
+		lastRefreshAttempted: false,
+		lastTrayError: null,
 		...createEmptyTrayAssetSnapshot(),
 		trayBounds: null,
 		trayCreated: false,
@@ -81,7 +85,10 @@ export class TrayService {
 
 		try {
 			const { snapshot, trayInput } = buildTrayImage(this.runtime, this.pluginDir);
-			this.snapshot = this.fromAssetSnapshot(snapshot);
+			this.snapshot = {
+				...this.fromAssetSnapshot(snapshot),
+				lastRefreshAttempted: true,
+			};
 
 			const menu = this.runtime.Menu.buildFromTemplate(
 				createTrayMenuTemplateForLocale(options.actions),
@@ -106,6 +113,8 @@ export class TrayService {
 			this.tray = tray;
 			this.snapshot = {
 				...this.fromAssetSnapshot(snapshot),
+				lastRefreshAttempted: true,
+				lastTrayError: null,
 				trayBounds: tray.getBounds?.() ?? null,
 				trayCreated: true,
 				trayObjectCreated: true,
@@ -113,12 +122,23 @@ export class TrayService {
 
 			return { ok: true };
 		} catch (error) {
+			const trayError = toError(error);
 			this.destroyTrayObject();
 			if (error instanceof TrayImageError) {
-				this.snapshot = this.fromAssetSnapshot(error.snapshot);
+				this.snapshot = {
+					...this.fromAssetSnapshot(error.snapshot),
+					lastRefreshAttempted: true,
+					lastTrayError: trayError.message,
+				};
+			} else {
+				this.snapshot = {
+					...this.snapshot,
+					lastRefreshAttempted: true,
+					lastTrayError: trayError.message,
+				};
 			}
 
-			return { error: toError(error), ok: false };
+			return { error: trayError, ok: false };
 		}
 	}
 
@@ -148,6 +168,8 @@ export class TrayService {
 
 	private fromAssetSnapshot(snapshot: TrayAssetSnapshot): TraySnapshot {
 		return {
+			lastRefreshAttempted: false,
+			lastTrayError: null,
 			...snapshot,
 			trayBounds: null,
 			trayCreated: false,

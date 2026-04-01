@@ -11,9 +11,10 @@ import {
 	type TrayControllerBackgroundSession,
 	type TrayControllerDependencies,
 	type TrayControllerTrayService,
+	type TrayControllerWindowCallbacks,
 	type TrayControllerWindowManager,
 } from "../src/tray-controller";
-import { TRAY_OWNER_STORAGE_KEY } from "../src/tray/owner";
+import { TRAY_OWNER_SCHEMA_VERSION, TRAY_OWNER_STORAGE_KEY } from "../src/tray/owner";
 import { createEmptyTraySnapshot, type TrayRefreshOptions, type TrayRefreshResult, type TraySnapshot } from "../src/tray/service";
 import {
 	FakeApp,
@@ -23,8 +24,8 @@ import {
 } from "./helpers/fakes";
 
 class FakeControllerWindowManager implements TrayControllerWindowManager {
+	callbacks: TrayControllerWindowCallbacks | null = null;
 	destroyCalls = 0;
-	focusHandler: (() => void) | null = null;
 	getWindowsValue: ElectronWindow[] = [];
 	hasVisibleWindowsValue = false;
 	hideWindowsCalls: boolean[] = [];
@@ -61,9 +62,17 @@ class FakeControllerWindowManager implements TrayControllerWindowManager {
 		this.showWindowsCalls += 1;
 	}
 
-	start(focusHandler?: () => void): void {
+	start(callbacks?: TrayControllerWindowCallbacks): void {
 		this.startCalls += 1;
-		this.focusHandler = focusHandler ?? null;
+		this.callbacks = callbacks ?? null;
+	}
+
+	triggerFocus(): void {
+		this.callbacks?.onFocus?.();
+	}
+
+	triggerTopologyChange(): void {
+		this.callbacks?.onTopologyChange?.();
 	}
 }
 
@@ -453,6 +462,70 @@ void test("TrayController unload tears down tray ownership and destroys the wind
 	assert.equal(harness.appLifecycle.destroyCalls, 1);
 	assert.equal(harness.backgroundSession.destroyCalls, 1);
 	assert.equal(harness.windowManager.destroyCalls, 1);
+});
+
+void test("TrayController reclaims tray ownership when a previous live owner disappears", () => {
+	const available = createAvailableRuntime("darwin");
+	const previousOwner = new FakeWindow(42);
+	available.allWindows.push(previousOwner);
+	const harness = createControllerHarness({ runtime: available.runtime });
+	harness.app.saveLocalStorage(TRAY_OWNER_STORAGE_KEY, {
+		ownerWindowId: 42,
+		schemaVersion: TRAY_OWNER_SCHEMA_VERSION,
+		updatedAt: 1,
+	});
+
+	harness.controller.initialize();
+
+	assert.equal(harness.trayService.refreshCalls[0]?.isOwner, false);
+	assert.equal(
+		(
+			harness.app.storage.get(TRAY_OWNER_STORAGE_KEY) as
+				| { ownerWindowId: number }
+				| undefined
+		)?.ownerWindowId,
+		42,
+	);
+
+	available.allWindows.splice(available.allWindows.indexOf(previousOwner), 1);
+	harness.windowManager.triggerTopologyChange();
+
+	assert.equal(harness.trayService.refreshCalls.length, 2);
+	assert.equal(harness.trayService.refreshCalls[1]?.isOwner, true);
+	assert.equal(
+		(
+			harness.app.storage.get(TRAY_OWNER_STORAGE_KEY) as
+				| { ownerWindowId: number }
+				| undefined
+		)?.ownerWindowId,
+		11,
+	);
+});
+
+void test("TrayController can recover from a tray creation failure on a later reconcile", () => {
+	const available = createAvailableRuntime("darwin");
+	const harness = createControllerHarness({ runtime: available.runtime });
+	harness.trayService.nextResult = {
+		error: new Error("tray failed"),
+		ok: false,
+	};
+
+	harness.controller.initialize();
+	assert.equal(harness.app.storage.has(TRAY_OWNER_STORAGE_KEY), false);
+
+	harness.trayService.nextResult = { ok: true };
+	harness.controller.applySettings({ ...DEFAULT_SETTINGS });
+
+	assert.equal(harness.trayService.refreshCalls.length, 2);
+	assert.equal(harness.trayService.refreshCalls[1]?.isOwner, true);
+	assert.equal(
+		(
+			harness.app.storage.get(TRAY_OWNER_STORAGE_KEY) as
+				| { ownerWindowId: number }
+				| undefined
+		)?.ownerWindowId,
+		11,
+	);
 });
 
 void test("TrayController shows runtime diagnostics built from current tray and lifecycle snapshots", () => {

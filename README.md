@@ -81,8 +81,10 @@ TrayX does not register default hotkeys. You can assign your own shortcuts in **
 - bridge choice
 - capability sources
 - tray readiness
+- last tray refresh error
 - tray owner
 - restore path
+- restore blocker
 - close interception state
 - tray path
 - `trayIconExists`
@@ -90,7 +92,7 @@ TrayX does not register default hotkeys. You can assign your own shortcuts in **
 - `trayIconTemplate`
 - tray bounds
 
-This is especially useful when the tray icon does not appear, the vault will not restore, or background hiding is being safely downgraded.
+This is especially useful when the tray icon does not appear, the vault will not restore, or background hiding is being safely downgraded, because the summary now also explains the latest tray failure and the current blocker behind degraded restore behavior.
 
 ## Limitations and recovery boundaries
 

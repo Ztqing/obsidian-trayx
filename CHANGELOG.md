@@ -2,6 +2,17 @@
 
 All notable user-facing changes for this plugin are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Runtime diagnostics now expose the latest tray refresh error and restore blocker so degraded restore behavior is easier to explain.
+- Tray controller reconciliation now reruns when tracked window topology changes, helping the current window reclaim tray ownership after a stale owner disappears.
+
+### Reliability
+
+- Recovery hardening keeps tray ownership, restore-path decisions, and close interception aligned after tray refresh failures and later retries.
+
 ## [1.0.0]
 
 ### Added

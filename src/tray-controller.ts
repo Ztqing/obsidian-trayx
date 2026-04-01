@@ -41,13 +41,18 @@ import { WindowManager } from "./window-manager";
 
 type NoticeSink = (message: string, timeout?: number) => void;
 
+export interface TrayControllerWindowCallbacks {
+	onFocus?(): void;
+	onTopologyChange?(): void;
+}
+
 export interface TrayControllerWindowManager
 	extends AppLifecycleWindowManager,
 		BackgroundWindowManager {
 	destroy(): void;
 	getWindows(): ElectronWindow[];
 	hasVisibleWindows(): boolean;
-	start(focusHandler?: () => void): void;
+	start(callbacks?: TrayControllerWindowCallbacks): void;
 }
 
 export interface TrayControllerTrayService {
@@ -152,37 +157,24 @@ export class TrayController {
 			return;
 		}
 
-		context.windowManager.start(() => {
-			syncFocusedAppIconVisibility(
-				this.appLifecycle,
-				this.settings.hideAppIcon,
-				this.getDerivedState().canHideAppIconSafely,
-			);
+		context.windowManager.start({
+			onFocus: () => {
+				syncFocusedAppIconVisibility(
+					this.appLifecycle,
+					this.settings.hideAppIcon,
+					this.getDerivedState().canHideAppIconSafely,
+				);
+			},
+			onTopologyChange: () => this.reconcileRuntimeState("window-topology-change"),
 		});
 
 		this.appLifecycle?.initialize();
-		this.applySettings(this.settings);
+		this.reconcileRuntimeState("initialize");
 	}
 
 	applySettings(settings: TrayXSettings): void {
 		this.settings = settings;
-		const context = this.getRuntimeContext();
-		if (!context) {
-			return;
-		}
-
-		this.syncTrayOwnership();
-		if (!this.settings.enableTrayIcon) {
-			this.releaseTrayOwnership();
-			this.destroyTray();
-		}
-
-		this.refreshTray();
-		const state = this.getDerivedState();
-		this.appLifecycle?.applySettings(buildAppLifecycleSettingsFromState(this.settings, state));
-		this.backgroundSession?.applyCloseInterception(
-			buildCloseInterceptionOptionsFromState(this.settings, state, context.windowManager),
-		);
+		this.reconcileRuntimeState("apply-settings");
 	}
 
 	handleHideOnLaunch(): void {
@@ -311,6 +303,7 @@ export class TrayController {
 
 	private getDerivedState(traySnapshot = this.getTraySnapshot()): TrayControllerDerivedState {
 		return buildTrayControllerDerivedState({
+			hideAppIconRequested: this.settings.hideAppIcon,
 			appIconHidden: this.getAppIconHidden(),
 			ownerSnapshot: this.ownerSnapshot,
 			runInBackground: this.settings.runInBackground,
@@ -327,6 +320,7 @@ export class TrayController {
 			backgroundSnapshot: this.backgroundSession?.getSnapshot(),
 			isFullScreen: this.backgroundSession?.isCurrentWindowFullScreen() ?? false,
 			ownerSnapshot: this.ownerSnapshot,
+			restoreBlocker: this.getDerivedState(traySnapshot).restoreBlocker,
 			restorePolicyInput: this.getDerivedState(traySnapshot).restorePolicyInput,
 			runtimeDiagnostics: this.runtime.diagnostics,
 			traySnapshot,
@@ -355,11 +349,34 @@ export class TrayController {
 			: getRuntimeFailureReason(this.runtime.diagnostics);
 	}
 
-	private refreshTray(): void {
-		if (!this.getRuntimeContext()) {
+	private reconcileRuntimeState(reason: string): void {
+		const context = this.getRuntimeContext();
+		if (!context) {
 			return;
 		}
 
+		this.dependencies.logDebug("[TrayX] Reconciling runtime state.", reason);
+		this.syncTrayOwnership();
+
+		if (!this.settings.enableTrayIcon) {
+			this.releaseTrayOwnership();
+			this.destroyTray();
+		} else {
+			this.refreshTray();
+		}
+
+		const initialState = this.getDerivedState();
+		this.appLifecycle?.applySettings(
+			buildAppLifecycleSettingsFromState(this.settings, initialState),
+		);
+
+		const settledState = this.getDerivedState();
+		this.backgroundSession?.applyCloseInterception(
+			buildCloseInterceptionOptionsFromState(this.settings, settledState, context.windowManager),
+		);
+	}
+
+	private refreshTray(): void {
 		const result = this.trayService?.refresh(
 			buildTrayRefreshOptions({
 				actions: {

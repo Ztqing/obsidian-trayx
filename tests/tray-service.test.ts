@@ -139,6 +139,8 @@ void test("TrayService refresh creates a tray and wires platform-specific click 
 	assert.equal(result.ok, true);
 	assert.ok(createdInputs[0] instanceof FakeNativeImage);
 	assert.deepEqual(service.getSnapshot(), {
+		lastRefreshAttempted: true,
+		lastTrayError: null,
 		resolvedTrayIconPath: null,
 		trayBounds: { height: 16, width: 16, x: 4, y: 8 },
 		trayCreated: true,
@@ -175,6 +177,8 @@ void test("TrayService uses the absolute tray template path on macOS", () => {
 	assert.equal(result.ok, true);
 	assert.equal(createdInputs[0], "/tmp/trayx-plugin/trayTemplate.png");
 	assert.deepEqual(service.getSnapshot(), {
+		lastRefreshAttempted: true,
+		lastTrayError: null,
 		resolvedTrayIconPath: "/tmp/trayx-plugin/trayTemplate.png",
 		trayBounds: { height: 16, width: 16, x: 4, y: 8 },
 		trayCreated: true,
@@ -206,6 +210,8 @@ void test("TrayService keeps asset diagnostics when tray construction fails", ()
 	assert.equal(result.ok, false);
 	assert.equal(result.error?.message, "tray failed");
 	assert.deepEqual(service.getSnapshot(), {
+		lastRefreshAttempted: true,
+		lastTrayError: "tray failed",
 		resolvedTrayIconPath: "/tmp/trayx-plugin/trayTemplate.png",
 		trayBounds: null,
 		trayCreated: false,

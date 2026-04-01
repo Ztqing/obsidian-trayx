@@ -4,30 +4,36 @@ import {
 	detachTrackedWindow,
 	isDestroyed,
 	isElectronWindow,
+	type WindowTrackerCallbacks,
 } from "./window-tracker";
+
+export interface WindowManagerCallbacks {
+	onFocus?(): void;
+	onTopologyChange?(): void;
+}
 
 export class WindowManager {
 	private readonly managedWindows = new Set<ElectronWindow>();
 	private readonly maximizedWindows = new Set<ElectronWindow>();
 	private readonly windowCleanup = new Map<ElectronWindow, Array<() => void>>();
 	private readonly cleanupCallbacks: Array<() => void> = [];
+	private callbacks: WindowTrackerCallbacks | null = null;
 	private isStarted = false;
 	private skipTaskbar = false;
-	private focusHandler: (() => void) | null = null;
 
 	constructor(private readonly runtime: AvailableDesktopRuntime) {}
 
-	start(focusHandler?: () => void): void {
+	start(callbacks?: WindowManagerCallbacks): void {
 		if (this.isStarted) {
 			return;
 		}
 
 		this.isStarted = true;
-		this.focusHandler = focusHandler ?? null;
+		this.callbacks = callbacks ?? null;
 
 		const onWindowCreated = (window: unknown): void => {
 			if (isElectronWindow(window)) {
-				this.trackWindow(window);
+				this.trackWindow(window, true);
 			}
 		};
 
@@ -99,7 +105,7 @@ export class WindowManager {
 
 		this.managedWindows.clear();
 		this.maximizedWindows.clear();
-		this.focusHandler = null;
+		this.callbacks = null;
 		this.isStarted = false;
 	}
 
@@ -107,9 +113,9 @@ export class WindowManager {
 		return this.hasVisibleWindows();
 	}
 
-	private trackWindow(window: ElectronWindow): void {
-		attachTrackedWindow({
-			focusHandler: this.focusHandler,
+	private trackWindow(window: ElectronWindow, notifyTopologyChange = false): void {
+		const attached = attachTrackedWindow({
+			callbacks: this.callbacks,
 			onDetachWindow: (window) => this.detachWindow(window),
 			skipTaskbar: this.skipTaskbar,
 			state: {
@@ -119,6 +125,9 @@ export class WindowManager {
 			},
 			window,
 		});
+		if (attached && notifyTopologyChange) {
+			this.callbacks?.onTopologyChange?.();
+		}
 	}
 
 	private detachWindow(window: ElectronWindow): void {

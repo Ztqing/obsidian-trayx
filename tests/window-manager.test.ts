@@ -175,8 +175,10 @@ void test("WindowManager only forwards focus callbacks from tracked windows", ()
 	const windowManager = new WindowManager(runtime);
 	let focusCalls = 0;
 
-	windowManager.start(() => {
-		focusCalls += 1;
+	windowManager.start({
+		onFocus: () => {
+			focusCalls += 1;
+		},
 	});
 
 	currentWindow.focus();
@@ -185,4 +187,24 @@ void test("WindowManager only forwards focus callbacks from tracked windows", ()
 	unmanagedWindow.focus();
 
 	assert.equal(focusCalls, 1);
+});
+
+void test("WindowManager reports topology changes when tracked windows are created and closed", () => {
+	const currentWindow = new FakeWindow(1);
+	const runtime = createRuntime(currentWindow);
+	const windowManager = new WindowManager(runtime);
+	let topologyCalls = 0;
+
+	windowManager.start({
+		onTopologyChange: () => {
+			topologyCalls += 1;
+		},
+	});
+
+	const popout = new FakeWindow(2);
+	currentWindow.webContents.emit("did-create-window", popout);
+	assert.equal(topologyCalls, 1);
+
+	popout.destroy();
+	assert.equal(topologyCalls, 2);
 });
