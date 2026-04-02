@@ -8,6 +8,7 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test:unit": "tsc -p tsconfig.test.json && printf '{\"type\":\"commonjs\"}\\n' > .test-dist/package.json && node --test .test-dist/tests/**/*.test.js",
+		"release:check": "node scripts/release-check.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},
@@ -31,6 +32,6 @@
 		"typescript-eslint": "8.35.1"
 	},
 	"dependencies": {
-		"obsidian": "latest"
+		"obsidian": "1.10.3"
 	}
 }
