@@ -177,7 +177,7 @@ npm run dev
 
 ## 致谢
 
-TrayX 的设计参考并部分改编自 [dragonwocky/obsidian-tray](https://github.com/dragonwocky/obsidian-tray)，其许可证为 MIT License。
+特别感谢 [dragonwocky/obsidian-tray](https://github.com/dragonwocky/obsidian-tray)。TrayX 的设计参考并部分改编自该项目，其许可证为 MIT License。
 
 ## License
 

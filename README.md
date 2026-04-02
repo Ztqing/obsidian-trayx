@@ -177,7 +177,7 @@ After that release validation passes:
 
 ## Attribution
 
-TrayX is inspired by and partially adapted from [dragonwocky/obsidian-tray](https://github.com/dragonwocky/obsidian-tray), released under the MIT License.
+Special thanks to [dragonwocky/obsidian-tray](https://github.com/dragonwocky/obsidian-tray). TrayX is inspired by and partially adapted from that project, which is released under the MIT License.
 
 ## License
 
