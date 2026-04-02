@@ -18,7 +18,9 @@
 
 ## Project status
 
-TrayX already covers the core desktop tray workflow for hiding, restoring, and diagnosing the current vault. The checklist below marks what is already in place and what we expect to keep refining next.
+TrayX already covers the core desktop tray workflow for hiding, restoring, and diagnosing the current vault. The current release target is the initial `1.0.0` GitHub release, with scope intentionally centered on desktop stability, observability, and predictable recovery paths.
+
+The checklist below marks what is already in place and what we expect to keep refining next.
 
 - [x] Desktop-only tray integration for the current vault on Windows and menu bar integration on macOS.
 - [x] Commands for toggling, showing, hiding, relaunching, closing, and inspecting the current vault runtime.
@@ -53,13 +55,21 @@ The roadmap prioritizes desktop stability, observability, and predictable recove
 5. Optionally enable **Hide on launch**, **Launch on startup**, or **Hide app icon** depending on how you want Obsidian to behave on your device.
 6. If tray behavior looks wrong, run **Show runtime diagnostics** and review the reported bridge, tray readiness, restore path, and icon state.
 
+## Installation
+
+For manual installation or GitHub release builds:
+
+1. Create or open `<vault>/.obsidian/plugins/trayx/`.
+2. Copy `main.js`, `manifest.json`, `styles.css`, `trayTemplate.png`, and `trayTemplate@2x.png` into that folder.
+3. Reload Obsidian and enable **TrayX** in the community plugins settings for that vault.
+
 ## Settings
 
 | Setting | What it does |
 | --- | --- |
 | Enable tray icon | Show a system tray or menu bar icon for this vault. |
 | Run in background | Hide the window instead of closing it when you close the app window. |
-| Hide on launch | Hide or minimize the window after startup, based on the current background behavior. |
+| Hide on launch | Minimize the window on startup in foreground mode, or hide it in background mode. |
 | Launch on startup | Open the app automatically when you sign in on this device. |
 | Hide app icon | Hide the app from the dock on macOS or hide the window from the taskbar on Windows while TrayX is active. |
 
@@ -115,6 +125,7 @@ Useful commands:
 - `npm run test:unit`
 - `npm run lint`
 - `npm run build`
+- `npm run release:check`
 
 `main.js` is generated locally or in CI during the build and release flow. The repository tracks the source files and release metadata, but not the generated bundle itself.
 
@@ -137,8 +148,9 @@ Before publishing a release, run:
 - `npm run test:unit`
 - `npm run lint`
 - `npm run build`
+- `npm run release:check`
 
-The build should regenerate `main.js` before you package or upload release assets.
+The build should regenerate `main.js` before you package or upload release assets, and `release:check` should confirm that the full release asset set is present while `main.js` still remains untracked in Git.
 
 Then verify in a clean desktop vault:
 
@@ -150,6 +162,11 @@ Then verify in a clean desktop vault:
 - repeated close and restore cycles do not create duplicate trays
 - on macOS, the tray asset path is absolute and the template icon is healthy
 - on Windows, the tray icon remains legible at small sizes
+
+After that release validation passes:
+
+- create and push the annotated release tag, for example `v1.0.0`
+- upload the verified release asset set from the clean build output
 
 ## Privacy and safety
 
