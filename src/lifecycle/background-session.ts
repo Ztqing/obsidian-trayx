@@ -42,12 +42,14 @@ export interface BackgroundSessionDependencies {
 
 export interface CloseInterceptionOptions {
 	canRecoverFromHiddenState: boolean;
+	onCloseRequest(): void;
 	runInBackground: boolean;
 	windowManager: BackgroundWindowManager;
 }
 
 export class BackgroundSessionController {
 	private beforeUnloadHandler: ((event: BeforeUnloadEventLike) => void) | null = null;
+	private closeRequestHandler: (() => void) | null = null;
 	private fullscreenBackgroundTimeout: unknown = null;
 	private leaveFullScreenHandler: (() => void) | null = null;
 	private snapshot = createEmptyBackgroundLifecycleSnapshot();
@@ -62,6 +64,8 @@ export class BackgroundSessionController {
 	) {}
 
 	applyCloseInterception(options: CloseInterceptionOptions): void {
+		this.closeRequestHandler = () => options.onCloseRequest();
+
 		if (this.shouldInterceptClose(options)) {
 			this.enableCloseInterception(options.windowManager);
 			return;
@@ -127,20 +131,25 @@ export class BackgroundSessionController {
 		this.snapshot.macUnloadVetoArmed = this.runtime.platform === "darwin";
 		this.windowCloseHandler = (event: { preventDefault?: () => void }): void => {
 			event.preventDefault?.();
-			this.backgroundCurrentSession(windowManager);
+			this.closeRequestHandler?.();
 		};
-		this.registerCloseInterceptionListeners(windowManager);
+		this.registerCloseInterceptionListeners();
 	}
 
 	private cleanupRuntimeState(): void {
 		this.snapshot.closeInterceptionActive = false;
 		this.unregisterCloseInterceptionListeners();
+		this.unregisterMacFullscreenLeaveHandler();
 		this.resetPendingMacFullscreenBackground();
+		this.closeRequestHandler = null;
 		this.snapshot.macUnloadVetoArmed = false;
 	}
 
 	private hideMacApp(windowManager: BackgroundWindowManager): void {
 		this.resetPendingMacFullscreenBackground();
+		if (!this.snapshot.closeInterceptionActive) {
+			this.unregisterMacFullscreenLeaveHandler();
+		}
 
 		if (this.canHideMacApp()) {
 			this.runtime.app.hide?.();
@@ -154,7 +163,7 @@ export class BackgroundSessionController {
 		return this.runtime.platform === "darwin" && typeof this.runtime.app.hide === "function";
 	}
 
-	private registerCloseInterceptionListeners(windowManager: BackgroundWindowManager): void {
+	private registerCloseInterceptionListeners(): void {
 		this.dependencies.domWindow.addEventListener(
 			"beforeunload",
 			this.beforeUnloadHandler as (event: BeforeUnloadEventLike) => void,
@@ -164,11 +173,10 @@ export class BackgroundSessionController {
 			"close",
 			this.windowCloseHandler as (event: { preventDefault?: () => void }) => void,
 		);
-		this.registerMacFullscreenLeaveHandler(windowManager);
 	}
 
 	private registerMacFullscreenLeaveHandler(windowManager: BackgroundWindowManager): void {
-		if (this.runtime.platform !== "darwin") {
+		if (this.runtime.platform !== "darwin" || this.leaveFullScreenHandler) {
 			return;
 		}
 
@@ -196,7 +204,9 @@ export class BackgroundSessionController {
 			this.runtime.currentWindow.removeListener("close", this.windowCloseHandler);
 			this.windowCloseHandler = null;
 		}
+	}
 
+	private unregisterMacFullscreenLeaveHandler(): void {
 		if (this.leaveFullScreenHandler) {
 			this.runtime.currentWindow.removeListener("leave-full-screen", this.leaveFullScreenHandler);
 			this.leaveFullScreenHandler = null;
@@ -211,6 +221,7 @@ export class BackgroundSessionController {
 
 		if (this.exitNativeFullscreen(currentWindow) || this.exitSimpleFullscreen(currentWindow)) {
 			this.snapshot.pendingMacFullscreenBackground = true;
+			this.registerMacFullscreenLeaveHandler(windowManager);
 			this.armFullscreenBackgroundTimeout(windowManager);
 			return true;
 		}

@@ -1,3 +1,6 @@
+import { existsSync, statSync } from "fs";
+import * as path from "path";
+
 import type {
 	AvailableDesktopRuntime,
 	ElectronTray,
@@ -69,6 +72,7 @@ export function createTrayMenuTemplateForLocale(
 }
 
 export class TrayService {
+	private lastRefreshSignature: string | null = null;
 	private snapshot = createEmptyTraySnapshot();
 	private tray: ElectronTray | null = null;
 
@@ -78,10 +82,27 @@ export class TrayService {
 	) {}
 
 	refresh(options: TrayRefreshOptions): TrayRefreshResult {
-		this.destroy();
+		const locale = getCurrentLocale();
+		const signature = this.buildRefreshSignature(options, locale);
+
 		if (!options.enabled || !options.isOwner) {
+			this.destroy();
 			return { ok: true };
 		}
+
+		if (this.tray && this.lastRefreshSignature === signature) {
+			this.snapshot = {
+				...this.snapshot,
+				lastRefreshAttempted: true,
+				lastTrayError: null,
+				trayBounds: this.tray.getBounds?.() ?? this.snapshot.trayBounds,
+				trayCreated: true,
+				trayObjectCreated: true,
+			};
+			return { ok: true };
+		}
+
+		this.destroy();
 
 		try {
 			const { snapshot, trayInput } = buildTrayImage(this.runtime, this.pluginDir);
@@ -91,7 +112,7 @@ export class TrayService {
 			};
 
 			const menu = this.runtime.Menu.buildFromTemplate(
-				createTrayMenuTemplateForLocale(options.actions),
+				createTrayMenuTemplateForLocale(options.actions, locale),
 			);
 			const tray = new this.runtime.Tray(trayInput);
 			const isMac = this.runtime.platform === "darwin";
@@ -111,6 +132,7 @@ export class TrayService {
 			tray.on("right-click", () => tray.popUpContextMenu(menu));
 
 			this.tray = tray;
+			this.lastRefreshSignature = signature;
 			this.snapshot = {
 				...this.fromAssetSnapshot(snapshot),
 				lastRefreshAttempted: true,
@@ -144,6 +166,7 @@ export class TrayService {
 
 	destroy(): void {
 		this.destroyTrayObject();
+		this.lastRefreshSignature = null;
 		this.snapshot = createEmptyTraySnapshot();
 	}
 
@@ -175,6 +198,37 @@ export class TrayService {
 			trayCreated: false,
 			trayObjectCreated: false,
 		};
+	}
+
+	private buildRefreshSignature(
+		options: TrayRefreshOptions,
+		locale: SupportedLocale,
+	): string {
+		return JSON.stringify({
+			enabled: options.enabled,
+			iconAsset: this.getTrayAssetSignature(),
+			isOwner: options.isOwner,
+			locale,
+			toolTip: options.toolTip,
+		});
+	}
+
+	private getTrayAssetSignature(): string {
+		if (this.runtime.platform !== "darwin") {
+			return "data-url";
+		}
+
+		const assetPath = path.join(this.pluginDir, "trayTemplate.png");
+		if (!existsSync(assetPath)) {
+			return `${assetPath}:missing`;
+		}
+
+		try {
+			const stats = statSync(assetPath);
+			return `${assetPath}:${stats.size}:${stats.mtimeMs}`;
+		} catch {
+			return `${assetPath}:unreadable`;
+		}
 	}
 }
 

@@ -247,7 +247,7 @@ function probeElectronRemotePackage(
 		const failureReasonDescriptor: RuntimeFailureReasonDescriptor = {
 			key: "remote-package-unavailable",
 		};
-		return createUnavailableProbe("none", platform, {
+		return createUnavailableProbe("@electron/remote", platform, {
 			failureReason: formatRuntimeFailureReason(failureReasonDescriptor),
 			failureReasonDescriptor,
 			notes: [remoteLoad.error],
@@ -331,7 +331,7 @@ function probeNamedBridge(
 	);
 	const nativeImage = resolveNativeImageCapability({
 		capabilitySources,
-		mainProcessNativeImage: readNativeImage(namespace.nativeImage),
+		mainProcessNativeImage: readNativeImage(namespace.nativeImage, platform),
 		missingCapabilities,
 		notes,
 		rendererNativeImage,
@@ -389,7 +389,7 @@ function buildBridgeAttempts(options: {
 	environment: ResolvedDesktopRuntimeEnvironment;
 	platform: DesktopPlatform;
 }): BridgeProbeResult[] {
-	const rendererNativeImage = readNativeImage(options.electron.nativeImage);
+	const rendererNativeImage = readNativeImage(options.electron.nativeImage, options.platform);
 	return [
 		probeElectronRemotePackage(options.environment, options.platform, rendererNativeImage),
 		probeNamedBridge(
@@ -487,11 +487,32 @@ function isElectronWindow(value: unknown): value is ElectronWindow {
 	return (
 		typeof value === "object" &&
 		value !== null &&
+		typeof (value as ElectronWindow).id === "number" &&
+		typeof (value as ElectronWindow).blur === "function" &&
+		typeof (value as ElectronWindow).focus === "function" &&
 		typeof (value as ElectronWindow).show === "function" &&
 		typeof (value as ElectronWindow).hide === "function" &&
+		typeof (value as ElectronWindow).minimize === "function" &&
+		typeof (value as ElectronWindow).restore === "function" &&
+		typeof (value as ElectronWindow).maximize === "function" &&
+		typeof (value as ElectronWindow).isFocused === "function" &&
+		typeof (value as ElectronWindow).isVisible === "function" &&
+		typeof (value as ElectronWindow).isMinimized === "function" &&
+		typeof (value as ElectronWindow).isMaximized === "function" &&
+		typeof (value as ElectronWindow).setSkipTaskbar === "function" &&
+		typeof (value as ElectronWindow).on === "function" &&
+		typeof (value as ElectronWindow).removeListener === "function" &&
 		typeof (value as ElectronWindow).destroy === "function" &&
-		typeof (value as ElectronWindow).webContents === "object" &&
-		(value as ElectronWindow).webContents !== null
+		isElectronWebContents((value as ElectronWindow).webContents)
+	);
+}
+
+function isElectronWebContents(value: unknown): value is ElectronWebContents {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as ElectronWebContents).on === "function" &&
+		typeof (value as ElectronWebContents).removeListener === "function"
 	);
 }
 

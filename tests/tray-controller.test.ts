@@ -92,6 +92,21 @@ class FakeControllerTrayService implements TrayControllerTrayService {
 
 	refresh(options: TrayRefreshOptions): TrayRefreshResult {
 		this.refreshCalls.push(options);
+		this.snapshot = this.nextResult.ok
+			? {
+					...this.snapshot,
+					lastRefreshAttempted: true,
+					lastTrayError: null,
+					trayCreated: options.enabled && options.isOwner,
+					trayObjectCreated: options.enabled && options.isOwner,
+				}
+			: {
+					...this.snapshot,
+					lastRefreshAttempted: true,
+					lastTrayError: this.nextResult.error?.message ?? "tray failed",
+					trayCreated: false,
+					trayObjectCreated: false,
+				};
 		return this.nextResult;
 	}
 }
@@ -99,6 +114,7 @@ class FakeControllerTrayService implements TrayControllerTrayService {
 class FakeControllerBackgroundSession implements TrayControllerBackgroundSession {
 	applyCloseInterceptionCalls = [] as Array<{
 		canRecoverFromHiddenState: boolean;
+		onCloseRequest: () => void;
 		runInBackground: boolean;
 		windowManager: TrayControllerWindowManager;
 	}>;
@@ -113,6 +129,7 @@ class FakeControllerBackgroundSession implements TrayControllerBackgroundSession
 	): void {
 		this.applyCloseInterceptionCalls.push({
 			canRecoverFromHiddenState: options.canRecoverFromHiddenState,
+			onCloseRequest: () => options.onCloseRequest(),
 			runInBackground: options.runInBackground,
 			windowManager: options.windowManager as TrayControllerWindowManager,
 		});
@@ -351,7 +368,7 @@ void test("TrayController shows the unavailable notice only once across repeated
 });
 
 void test("TrayController releases tray ownership and shows a localized notice when tray creation fails", () => {
-	const runtime = createAvailableRuntime("darwin").runtime;
+	const runtime = createAvailableRuntime("win32").runtime;
 	const harness = createControllerHarness({ runtime });
 	harness.trayService.nextResult = {
 		error: new Error("tray failed"),
@@ -397,7 +414,28 @@ void test("TrayController falls back to foreground minimize when background rest
 	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 0);
 });
 
-void test("TrayController toggles to show when background restore is unsafe", () => {
+void test("TrayController minimizes on hide-on-launch when foreground mode is enabled", () => {
+	const runtime = createAvailableRuntime("darwin").runtime;
+	const harness = createControllerHarness({
+		runtime,
+		settings: {
+			...DEFAULT_SETTINGS,
+			hideOnLaunch: true,
+			runInBackground: false,
+		},
+	});
+
+	harness.controller.initialize();
+	harness.windowManager.hideWindowsCalls = [];
+	harness.backgroundSession.backgroundCurrentSessionCalls = 0;
+
+	harness.controller.handleHideOnLaunch();
+
+	assert.deepEqual(harness.windowManager.hideWindowsCalls, [false]);
+	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 0);
+});
+
+void test("TrayController toggles visible windows through the unified hide policy", () => {
 	const runtime = createAvailableRuntime("win32").runtime;
 	const harness = createControllerHarness({
 		runtime,
@@ -412,11 +450,104 @@ void test("TrayController toggles to show when background restore is unsafe", ()
 	harness.controller.initialize();
 	harness.windowManager.showWindowsCalls = 0;
 	harness.windowManager.hideWindowsCalls = [];
+	harness.backgroundSession.backgroundCurrentSessionCalls = 0;
 
 	harness.controller.toggleVaultVisibility();
 
-	assert.equal(harness.windowManager.showWindowsCalls, 1);
-	assert.deepEqual(harness.windowManager.hideWindowsCalls, []);
+	assert.equal(harness.windowManager.showWindowsCalls, 0);
+	assert.deepEqual(harness.windowManager.hideWindowsCalls, [false]);
+	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 0);
+});
+
+void test("TrayController resyncs tray ownership before hiding from a stale non-owner state", () => {
+	const available = createAvailableRuntime("win32");
+	const previousOwner = new FakeWindow(42);
+	available.allWindows.push(previousOwner);
+	const harness = createControllerHarness({
+		runtime: available.runtime,
+		settings: {
+			...DEFAULT_SETTINGS,
+			runInBackground: true,
+		},
+	});
+	harness.app.saveLocalStorage(TRAY_OWNER_STORAGE_KEY, {
+		ownerWindowId: 42,
+		schemaVersion: TRAY_OWNER_SCHEMA_VERSION,
+		updatedAt: 1,
+	});
+
+	harness.controller.initialize();
+	assert.equal(harness.trayService.refreshCalls[0]?.isOwner, false);
+
+	available.allWindows.splice(available.allWindows.indexOf(previousOwner), 1);
+	harness.backgroundSession.backgroundCurrentSessionCalls = 0;
+
+	harness.controller.hideVault();
+
+	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 1);
+	assert.equal(
+		(
+			harness.app.storage.get(TRAY_OWNER_STORAGE_KEY) as
+				| { ownerWindowId: number }
+				| undefined
+		)?.ownerWindowId,
+		11,
+	);
+});
+
+void test("TrayController safely degrades after resync when reclaiming the tray still fails", () => {
+	const available = createAvailableRuntime("win32");
+	const previousOwner = new FakeWindow(42);
+	available.allWindows.push(previousOwner);
+	const harness = createControllerHarness({
+		runtime: available.runtime,
+		settings: {
+			...DEFAULT_SETTINGS,
+			runInBackground: true,
+		},
+	});
+	harness.app.saveLocalStorage(TRAY_OWNER_STORAGE_KEY, {
+		ownerWindowId: 42,
+		schemaVersion: TRAY_OWNER_SCHEMA_VERSION,
+		updatedAt: 1,
+	});
+
+	harness.controller.initialize();
+	available.allWindows.splice(available.allWindows.indexOf(previousOwner), 1);
+	harness.trayService.nextResult = {
+		error: new Error("tray failed"),
+		ok: false,
+	};
+	harness.windowManager.hideWindowsCalls = [];
+	harness.backgroundSession.backgroundCurrentSessionCalls = 0;
+
+	harness.controller.hideVault();
+
+	assert.deepEqual(harness.windowManager.hideWindowsCalls, [false]);
+	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 0);
+	assert.equal(harness.app.storage.has(TRAY_OWNER_STORAGE_KEY), false);
+	assert.equal(harness.trayService.refreshCalls[1]?.isOwner, true);
+});
+
+void test("TrayController close interception reuses the unified hide policy", () => {
+	const runtime = createAvailableRuntime("win32").runtime;
+	const harness = createControllerHarness({
+		runtime,
+		settings: {
+			...DEFAULT_SETTINGS,
+			enableTrayIcon: false,
+			runInBackground: true,
+		},
+	});
+
+	harness.controller.initialize();
+	harness.windowManager.hideWindowsCalls = [];
+	harness.backgroundSession.backgroundCurrentSessionCalls = 0;
+
+	harness.backgroundSession.applyCloseInterceptionCalls[0]?.onCloseRequest();
+
+	assert.deepEqual(harness.windowManager.hideWindowsCalls, [false]);
+	assert.equal(harness.backgroundSession.backgroundCurrentSessionCalls, 0);
 });
 
 void test("TrayController closes the app when this vault owns every remaining window", () => {

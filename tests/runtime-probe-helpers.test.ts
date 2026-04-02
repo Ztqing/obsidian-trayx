@@ -13,10 +13,12 @@ import {
 	chooseBestFailure,
 	createDiagnostics,
 	createUnavailableProbe,
+	isDisabledBridgeError,
 	pickAvailableBridge,
 	readBridgeBuiltin,
 	readCapability,
 	readCurrentWindow,
+	readNativeImage,
 	resolveNativeImageCapability,
 } from "../src/runtime/probe-helpers";
 
@@ -80,6 +82,29 @@ void test("resolveNativeImageCapability prefers the bridge image and falls back 
 		rendererNativeImage,
 	);
 	assert.equal(fallbackSources.nativeImage, "renderer-fallback");
+
+	assert.equal(
+		readNativeImage(
+			{
+				createFromDataURL(): unknown {
+					return {};
+				},
+			},
+			"darwin",
+		),
+		undefined,
+	);
+	assert.equal(
+		readNativeImage(
+			{
+				createFromPath(): unknown {
+					return {};
+				},
+			},
+			"darwin",
+		) !== undefined,
+		true,
+	);
 });
 
 void test("chooseBestFailure prefers disabled bridges and then @electron/remote failures", () => {
@@ -102,6 +127,10 @@ void test("chooseBestFailure prefers disabled bridges and then @electron/remote 
 			remote,
 		]).diagnostics.failureReason,
 		"remote",
+	);
+	assert.equal(
+		isDisabledBridgeError("Tray: Access denied because remote access is disabled for this WebContents."),
+		true,
 	);
 });
 
@@ -168,4 +197,36 @@ void test("probe helper readers annotate capability sources and missing diagnost
 	assert.deepEqual(missingCapabilities, ["getCurrentWindow"]);
 	assert.equal(missingSources.getCurrentWindow, "missing");
 	assert.match(missingNotes[0] ?? "", /getCurrentWindow is not available/);
+
+	const invalidWindowNotes: string[] = [];
+	const invalidWindowCapabilities: typeof missing = [];
+	const invalidWindowSources: Record<string, string> = {};
+	const invalidWindowErrors: string[] = [];
+	const invalidWindow = readCurrentWindow(
+		{
+			getCurrentWindow: () => ({
+				destroy(): void {},
+				hide(): void {},
+				id: 5,
+				on(): void {},
+				removeListener(): void {},
+				show(): void {},
+				webContents: {
+					on(): void {},
+					removeListener(): void {},
+				},
+			}),
+		},
+		(value): value is ElectronWindow =>
+			typeof value === "object" &&
+			value !== null &&
+			typeof (value as ElectronWindow).focus === "function",
+		invalidWindowNotes,
+		invalidWindowCapabilities,
+		invalidWindowErrors,
+		invalidWindowSources,
+	);
+	assert.equal(invalidWindow, undefined);
+	assert.deepEqual(invalidWindowCapabilities, ["getCurrentWindow"]);
+	assert.equal(invalidWindowSources.getCurrentWindow, "missing");
 });

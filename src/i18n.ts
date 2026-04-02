@@ -202,7 +202,7 @@ const STRINGS = {
 			hideAppIconOtherDescription:
 				"Hide the window from the taskbar while TrayX is active. Keep the tray icon enabled if you turn this on.",
 			hideOnLaunchDescription:
-				"Hide or minimize the window after startup, based on the current background behavior.",
+				"Minimize the window on startup in foreground mode, or hide it in background mode.",
 			hideOnLaunchName: "Hide on launch",
 			launchOnStartupDescription: "Open the app automatically when you sign in on this device.",
 			launchOnStartupName: "Launch on startup",
@@ -282,7 +282,7 @@ const STRINGS = {
 			hideAppIconName: "隐藏应用图标",
 			hideAppIconOtherDescription:
 				"TrayX 运行期间将窗口从任务栏中隐藏。启用此项时请保持托盘图标开启。",
-			hideOnLaunchDescription: "启动后根据当前后台运行行为隐藏或最小化窗口。",
+			hideOnLaunchDescription: "前台模式下启动后最小化窗口，后台模式下启动后隐藏窗口。",
 			hideOnLaunchName: "启动时隐藏",
 			launchOnStartupDescription: "在此设备登录时自动打开应用。",
 			launchOnStartupName: "登录时启动",

@@ -159,6 +159,7 @@ export class TrayController {
 
 		context.windowManager.start({
 			onFocus: () => {
+				this.syncTrayOwnership();
 				syncFocusedAppIconVisibility(
 					this.appLifecycle,
 					this.settings.hideAppIcon,
@@ -182,7 +183,7 @@ export class TrayController {
 			return;
 		}
 
-		this.hideVault();
+		this.applyConfiguredHide("hide-on-launch");
 	}
 
 	toggleVaultVisibility(): void {
@@ -191,14 +192,8 @@ export class TrayController {
 			return;
 		}
 
-		const state = this.getDerivedState();
-		if (this.settings.runInBackground && !state.canRecoverFromHiddenState) {
-			this.showVault();
-			return;
-		}
-
 		if (context.windowManager.hasVisibleWindows()) {
-			this.hideVault();
+			this.applyConfiguredHide("toggle-vault-visibility");
 			return;
 		}
 
@@ -219,15 +214,26 @@ export class TrayController {
 	}
 
 	hideVault(): void {
+		this.applyConfiguredHide("hide-vault");
+	}
+
+	private applyConfiguredHide(reason: string): void {
 		const context = this.getRuntimeContext();
 		if (!context) {
 			return;
 		}
 
+		if (!this.settings.runInBackground) {
+			context.windowManager.hideWindows(false);
+			return;
+		}
+
+		this.syncTrayOwnershipAndRefreshIfNeeded();
 		const state = this.getDerivedState();
-		if (this.settings.runInBackground && !state.canRecoverFromHiddenState) {
+		if (!state.canRecoverFromHiddenState) {
 			this.dependencies.logWarn(
 				"[TrayX] Background hide skipped because no recovery path is available.",
+				reason,
 			);
 			context.windowManager.hideWindows(false);
 			return;
@@ -274,6 +280,7 @@ export class TrayController {
 	}
 
 	showRuntimeDiagnostics(): void {
+		this.syncTrayOwnership();
 		const diagnostics = this.getDiagnosticsPayload();
 		this.dependencies.logDebug("[TrayX] Runtime diagnostics", diagnostics);
 		this.dependencies.showNotice(
@@ -315,13 +322,14 @@ export class TrayController {
 
 	private getDiagnosticsPayload() {
 		const traySnapshot = this.getTraySnapshot();
+		const state = this.getDerivedState(traySnapshot);
 		return buildTrayControllerDiagnostics({
 			appIconHidden: this.getAppIconHidden(),
 			backgroundSnapshot: this.backgroundSession?.getSnapshot(),
 			isFullScreen: this.backgroundSession?.isCurrentWindowFullScreen() ?? false,
 			ownerSnapshot: this.ownerSnapshot,
-			restoreBlocker: this.getDerivedState(traySnapshot).restoreBlocker,
-			restorePolicyInput: this.getDerivedState(traySnapshot).restorePolicyInput,
+			restoreBlocker: state.restoreBlocker,
+			restorePolicyInput: state.restorePolicyInput,
 			runtimeDiagnostics: this.runtime.diagnostics,
 			traySnapshot,
 		});
@@ -356,12 +364,12 @@ export class TrayController {
 		}
 
 		this.dependencies.logDebug("[TrayX] Reconciling runtime state.", reason);
-		this.syncTrayOwnership();
+		const refreshedTrayForOwnerChange = this.syncTrayOwnershipAndRefreshIfNeeded();
 
 		if (!this.settings.enableTrayIcon) {
 			this.releaseTrayOwnership();
 			this.destroyTray();
-		} else {
+		} else if (!refreshedTrayForOwnerChange && !this.getTraySnapshot().trayObjectCreated) {
 			this.refreshTray();
 		}
 
@@ -372,7 +380,12 @@ export class TrayController {
 
 		const settledState = this.getDerivedState();
 		this.backgroundSession?.applyCloseInterception(
-			buildCloseInterceptionOptionsFromState(this.settings, settledState, context.windowManager),
+			buildCloseInterceptionOptionsFromState(
+				this.settings,
+				settledState,
+				context.windowManager,
+				() => this.applyConfiguredHide("close-interception"),
+			),
 		);
 	}
 
@@ -414,11 +427,12 @@ export class TrayController {
 		this.dependencies.showNotice(reason, 8000);
 	}
 
-	private syncTrayOwnership(): void {
+	private syncTrayOwnership(): boolean {
 		if (!this.runtime.available) {
-			return;
+			return false;
 		}
 
+		const previousSnapshot = this.ownerSnapshot;
 		const liveWindowIds = new Set(
 			this.runtime.BrowserWindow.getAllWindows()
 				.filter((window) => !window.isDestroyed?.())
@@ -429,6 +443,23 @@ export class TrayController {
 			this.runtime.currentWindow.id,
 			liveWindowIds,
 		);
+
+		return (
+			previousSnapshot.isTrayOwner !== this.ownerSnapshot.isTrayOwner ||
+			previousSnapshot.previousTrayOwnerDetected !==
+				this.ownerSnapshot.previousTrayOwnerDetected ||
+			previousSnapshot.trayOwnerWindowId !== this.ownerSnapshot.trayOwnerWindowId
+		);
+	}
+
+	private syncTrayOwnershipAndRefreshIfNeeded(): boolean {
+		const ownerChanged = this.syncTrayOwnership();
+		if (ownerChanged && this.settings.enableTrayIcon) {
+			this.refreshTray();
+			return true;
+		}
+
+		return false;
 	}
 }
 

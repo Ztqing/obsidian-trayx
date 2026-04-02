@@ -112,9 +112,11 @@ export function buildCloseInterceptionOptionsFromState(
 	settings: TrayXSettings,
 	state: TrayControllerDerivedState,
 	windowManager: BackgroundWindowManager,
+	onCloseRequest: () => void,
 ): CloseInterceptionOptions {
 	return {
 		canRecoverFromHiddenState: state.canRecoverFromHiddenState,
+		onCloseRequest,
 		runInBackground: settings.runInBackground,
 		windowManager,
 	};

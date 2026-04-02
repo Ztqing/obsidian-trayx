@@ -225,3 +225,68 @@ void test("TrayService keeps asset diagnostics when tray construction fails", ()
 	service.destroy();
 	assert.deepEqual(service.getSnapshot(), createEmptyTraySnapshot());
 });
+
+void test("TrayService reuses the existing tray when the refresh signature is unchanged", () => {
+	const createdTrays: FakeTray[] = [];
+	class CapturingTray extends FakeTray {
+		constructor(image: ElectronNativeImage | string) {
+			super();
+			void image;
+			createdTrays.push(this);
+		}
+	}
+
+	const service = new TrayService(createRuntime("darwin", CapturingTray), "/tmp/trayx-plugin");
+	const first = service.refresh({
+		actions: createActions(),
+		enabled: true,
+		isOwner: true,
+		toolTip: "TrayX: Demo",
+	});
+	const second = service.refresh({
+		actions: createActions(),
+		enabled: true,
+		isOwner: true,
+		toolTip: "TrayX: Demo",
+	});
+
+	assert.equal(first.ok, true);
+	assert.equal(second.ok, true);
+	assert.equal(createdTrays.length, 1);
+	assert.equal(createdTrays[0]?.destroyed, false);
+});
+
+void test("TrayService rebuilds the tray when owner status changes", () => {
+	const createdTrays: FakeTray[] = [];
+	class CapturingTray extends FakeTray {
+		constructor(image: ElectronNativeImage | string) {
+			super();
+			void image;
+			createdTrays.push(this);
+		}
+	}
+
+	const service = new TrayService(createRuntime("win32", CapturingTray), "/tmp/trayx-plugin");
+	service.refresh({
+		actions: createActions(),
+		enabled: true,
+		isOwner: true,
+		toolTip: "TrayX: Demo",
+	});
+	service.refresh({
+		actions: createActions(),
+		enabled: true,
+		isOwner: false,
+		toolTip: "TrayX: Demo",
+	});
+	service.refresh({
+		actions: createActions(),
+		enabled: true,
+		isOwner: true,
+		toolTip: "TrayX: Demo",
+	});
+
+	assert.equal(createdTrays.length, 2);
+	assert.equal(createdTrays[0]?.destroyed, true);
+	assert.equal(createdTrays[1]?.destroyed, false);
+});

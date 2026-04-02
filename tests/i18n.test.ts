@@ -36,7 +36,7 @@ void test("getSettingDefinitions returns localized settings for macOS and Window
 			},
 			{
 				description:
-					"Hide or minimize the window after startup, based on the current background behavior.",
+					"Minimize the window on startup in foreground mode, or hide it in background mode.",
 				key: "hideOnLaunch",
 				name: "Hide on launch",
 			},
@@ -68,7 +68,7 @@ void test("getSettingDefinitions returns localized settings for macOS and Window
 				name: "后台运行",
 			},
 			{
-				description: "启动后根据当前后台运行行为隐藏或最小化窗口。",
+				description: "前台模式下启动后最小化窗口，后台模式下启动后隐藏窗口。",
 				key: "hideOnLaunch",
 				name: "启动时隐藏",
 			},
@@ -160,6 +160,15 @@ void test("getTrayCreationFailureNotice stays localized for both supported local
 		getTrayCreationFailureNotice("zh"),
 		"无法在当前桌面版中创建托盘图标。",
 	);
+});
+
+void test("shared command and tray labels stay aligned across locales", () => {
+	for (const locale of ["en", "zh"] as const) {
+		const strings = getLocalizedStrings(locale);
+		for (const key of ["showVault", "hideVault", "relaunchApp", "closeVault"] as const) {
+			assert.equal(strings.commands[key], strings.trayMenu[key]);
+		}
+	}
 });
 
 function getValueShape(value: unknown): unknown {

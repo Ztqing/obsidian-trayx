@@ -68,8 +68,11 @@ export function readHostRemoteNamespace(value: unknown): Record<string, unknown>
 	return electronNamespace ? asObject(electronNamespace.remote) : null;
 }
 
-export function readNativeImage(value: unknown): ElectronNativeImageStatic | undefined {
-	return isElectronNativeImageStatic(value) ? value : undefined;
+export function readNativeImage(
+	value: unknown,
+	platform: DesktopPlatform,
+): ElectronNativeImageStatic | undefined {
+	return isElectronNativeImageStatic(value, platform) ? value : undefined;
 }
 
 export function readHostVersion(app: ElectronApp | undefined): string | undefined {
@@ -280,12 +283,14 @@ export function readCurrentWindow(
 }
 
 export function isDisabledBridgeError(message: string): boolean {
+	const normalized = message.toLowerCase();
 	return (
-		message.includes("@electron/remote is disabled for this WebContents") ||
-		message.includes("Blocked remote.getCurrentWindow()") ||
-		message.includes("Blocked remote.getBuiltin('BrowserWindow')") ||
-		message.includes("Blocked remote.getBuiltin('Menu')") ||
-		message.includes("Blocked remote.getBuiltin('Tray')")
+		(normalized.includes("disabled") && normalized.includes("webcontents")) ||
+		normalized.includes("blocked remote.") ||
+		normalized.includes("blocked remote.get") ||
+		(normalized.includes("access") &&
+			normalized.includes("denied") &&
+			normalized.includes("remote"))
 	);
 }
 
@@ -297,10 +302,15 @@ export function toErrorMessage(error: unknown): string {
 	return String(error);
 }
 
-function isElectronNativeImageStatic(value: unknown): value is ElectronNativeImageStatic {
+function isElectronNativeImageStatic(
+	value: unknown,
+	platform: DesktopPlatform,
+): value is ElectronNativeImageStatic {
 	return (
 		typeof value === "object" &&
 		value !== null &&
-		typeof (value as ElectronNativeImageStatic).createFromDataURL === "function"
+		(platform === "darwin"
+			? typeof (value as ElectronNativeImageStatic).createFromPath === "function"
+			: typeof (value as ElectronNativeImageStatic).createFromDataURL === "function")
 	);
 }

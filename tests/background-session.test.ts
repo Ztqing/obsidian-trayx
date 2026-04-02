@@ -79,6 +79,7 @@ void test("BackgroundSessionController toggles close interception listeners on a
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: true,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
@@ -90,7 +91,7 @@ void test("BackgroundSessionController toggles close interception listeners on a
 	});
 	assert.equal(domWindow.listenerCount(), 1);
 	assert.equal(currentWindow.listenerCount("close"), 1);
-	assert.equal(currentWindow.listenerCount("leave-full-screen"), 1);
+	assert.equal(currentWindow.listenerCount("leave-full-screen"), 0);
 
 	const beforeUnloadEvent = createBeforeUnloadEvent();
 	domWindow.dispatchBeforeUnload(beforeUnloadEvent);
@@ -100,6 +101,7 @@ void test("BackgroundSessionController toggles close interception listeners on a
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: false,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
@@ -131,21 +133,24 @@ void test("BackgroundSessionController keeps close interception listener registr
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: true,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: true,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
 
 	assert.equal(domWindow.listenerCount(), 1);
 	assert.equal(currentWindow.listenerCount("close"), 1);
-	assert.equal(currentWindow.listenerCount("leave-full-screen"), 1);
+	assert.equal(currentWindow.listenerCount("leave-full-screen"), 0);
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: false,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
@@ -177,6 +182,7 @@ void test("BackgroundSessionController backgrounds fullscreen macOS windows afte
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: true,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
@@ -210,6 +216,7 @@ void test("BackgroundSessionController backgrounds simple fullscreen macOS windo
 
 	controller.applyCloseInterception({
 		canRecoverFromHiddenState: true,
+		onCloseRequest: () => windowManager.hideWindows(),
 		runInBackground: true,
 		windowManager,
 	});
@@ -223,6 +230,39 @@ void test("BackgroundSessionController backgrounds simple fullscreen macOS windo
 
 	assert.equal(runtime.app.hideCalls, 1);
 	assert.equal(timers.pendingCount(), 0);
+	assert.equal(controller.getSnapshot().pendingMacFullscreenBackground, false);
+});
+
+void test("BackgroundSessionController keeps a fullscreen leave listener for direct backgrounding outside close interception", () => {
+	const currentWindow = new FakeWindow(1);
+	currentWindow.setFullScreen(true);
+	currentWindow.setFullScreenCalls = [];
+	const timers = new FakeTimerController();
+	const runtime = createRuntime("darwin", currentWindow);
+	const controller = new BackgroundSessionController(runtime, {
+		domWindow: new FakeDomWindow(),
+		timers,
+	});
+	const windowManager = {
+		hideWindows(): void {},
+		showWindows(): void {},
+	};
+
+	controller.backgroundCurrentSession(windowManager);
+
+	assert.deepEqual(currentWindow.setFullScreenCalls, [false]);
+	assert.equal(currentWindow.listenerCount("leave-full-screen"), 1);
+	assert.equal(timers.pendingCount(), 1);
+
+	currentWindow.setFullScreen(true);
+	timers.runAll();
+	assert.equal(runtime.app.hideCalls, 0);
+
+	currentWindow.setFullScreen(false);
+	currentWindow.emit("leave-full-screen");
+
+	assert.equal(runtime.app.hideCalls, 1);
+	assert.equal(currentWindow.listenerCount("leave-full-screen"), 0);
 	assert.equal(controller.getSnapshot().pendingMacFullscreenBackground, false);
 });
 

@@ -28,6 +28,12 @@ function createNativeImageStatic(): ElectronNativeImageStatic {
 	};
 }
 
+function createDarwinPathOnlyNativeImage(): Pick<ElectronNativeImageStatic, "createFromPath"> {
+	return {
+		createFromPath: () => new FakeNativeImage(),
+	};
+}
+
 function createBridgeNamespace(
 	currentWindow: ElectronWindow,
 	overrides: Partial<Record<string, unknown>> = {},
@@ -176,6 +182,34 @@ void test("createDesktopRuntime classifies blocked bridge access as bridge-disab
 	assert.match(runtime.diagnostics.notes.join(" "), /Blocked remote\.getCurrentWindow\(\)/);
 });
 
+void test("createDesktopRuntime classifies generic disabled bridge errors as bridge-disabled", () => {
+	const currentWindow = new FakeWindow(11);
+	const disabledNamespace = createBridgeNamespace(currentWindow);
+	Object.defineProperty(disabledNamespace, "Tray", {
+		get(): never {
+			throw new Error(
+				"Access denied because remote access is disabled for this WebContents.",
+			);
+		},
+	});
+	const runtime = assertUnavailableRuntime(
+		createDesktopRuntime(
+			createEnvironment({
+				electronModule: {
+					nativeImage: createNativeImageStatic(),
+					remote: null,
+				},
+				modules: {
+					"@electron/remote": disabledNamespace,
+				},
+				platform: "win32",
+			}),
+		),
+	);
+
+	assert.equal(runtime.diagnostics.failureReasonDescriptor?.key, "bridge-disabled");
+});
+
 void test("createDesktopRuntime reports missing bridge capabilities when required APIs are absent", () => {
 	const currentWindow = new FakeWindow(11);
 	const runtime = assertUnavailableRuntime(
@@ -199,9 +233,36 @@ void test("createDesktopRuntime reports missing bridge capabilities when require
 	assert.deepEqual(runtime.diagnostics.missingCapabilities, ["Tray"]);
 });
 
+void test("createDesktopRuntime rejects darwin nativeImage fallbacks without createFromPath", () => {
+	const currentWindow = new FakeWindow(11);
+	const runtime = assertUnavailableRuntime(
+		createDesktopRuntime(
+			createEnvironment({
+				electronModule: {
+					nativeImage: {
+						createFromDataURL: () => new FakeNativeImage(),
+					},
+					remote: null,
+				},
+				modules: {
+					"@electron/remote": createBridgeNamespace(currentWindow, {
+						nativeImage: {
+							createFromDataURL: () => new FakeNativeImage(),
+						},
+					}),
+				},
+				platform: "darwin",
+			}),
+		),
+	);
+
+	assert.equal(runtime.diagnostics.failureReasonDescriptor?.key, "bridge-missing-capabilities");
+	assert.deepEqual(runtime.diagnostics.missingCapabilities, ["nativeImage"]);
+});
+
 void test("createDesktopRuntime uses the renderer nativeImage as a fallback when the bridge does not expose one", () => {
 	const currentWindow = new FakeWindow(11);
-	const rendererNativeImage = createNativeImageStatic();
+	const rendererNativeImage = createDarwinPathOnlyNativeImage();
 	const runtime = assertAvailableRuntime(
 		createDesktopRuntime(
 		createEnvironment({
@@ -221,6 +282,58 @@ void test("createDesktopRuntime uses the renderer nativeImage as a fallback when
 
 	assert.equal(runtime.diagnostics.capabilitySources.nativeImage, "renderer-fallback");
 	assert.equal(runtime.nativeImage, rendererNativeImage);
+});
+
+void test("createDesktopRuntime rejects incomplete BrowserWindow proxies from the bridge", () => {
+	const runtime = assertUnavailableRuntime(
+		createDesktopRuntime(
+			createEnvironment({
+				electronModule: {
+					nativeImage: createNativeImageStatic(),
+					remote: null,
+				},
+				modules: {
+					"@electron/remote": {
+						...createBridgeNamespace(new FakeWindow(21)),
+						getCurrentWindow: () => ({
+							destroy(): void {},
+							hide(): void {},
+							id: 21,
+							on(): void {},
+							removeListener(): void {},
+							show(): void {},
+							webContents: {
+								on(): void {},
+								removeListener(): void {},
+							},
+						}),
+					},
+				},
+				platform: "darwin",
+			}),
+		),
+	);
+
+	assert.equal(runtime.diagnostics.failureReasonDescriptor?.key, "bridge-missing-capabilities");
+	assert.deepEqual(runtime.diagnostics.missingCapabilities, ["getCurrentWindow"]);
+});
+
+void test("createDesktopRuntime keeps @electron/remote as the bridge kind when the package is unavailable", () => {
+	const runtime = assertUnavailableRuntime(
+		createDesktopRuntime(
+			createEnvironment({
+				electronModule: {
+					nativeImage: createNativeImageStatic(),
+					remote: null,
+				},
+				modules: {},
+				platform: "darwin",
+			}),
+		),
+	);
+
+	assert.equal(runtime.diagnostics.bridgeKind, "@electron/remote");
+	assert.equal(runtime.diagnostics.failureReasonDescriptor?.key, "remote-package-unavailable");
 });
 
 function assertAvailableRuntime(
