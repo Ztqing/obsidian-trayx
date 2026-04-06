@@ -28,9 +28,9 @@ function createNativeImageStatic(): ElectronNativeImageStatic {
 	};
 }
 
-function createDarwinPathOnlyNativeImage(): Pick<ElectronNativeImageStatic, "createFromPath"> {
+function createDataUrlOnlyNativeImage(): Pick<ElectronNativeImageStatic, "createFromDataURL"> {
 	return {
-		createFromPath: () => new FakeNativeImage(),
+		createFromDataURL: () => new FakeNativeImage(),
 	};
 }
 
@@ -233,21 +233,21 @@ void test("createDesktopRuntime reports missing bridge capabilities when require
 	assert.deepEqual(runtime.diagnostics.missingCapabilities, ["Tray"]);
 });
 
-void test("createDesktopRuntime rejects darwin nativeImage fallbacks without createFromPath", () => {
+void test("createDesktopRuntime rejects nativeImage fallbacks without createFromDataURL", () => {
 	const currentWindow = new FakeWindow(11);
 	const runtime = assertUnavailableRuntime(
 		createDesktopRuntime(
 			createEnvironment({
 				electronModule: {
 					nativeImage: {
-						createFromDataURL: () => new FakeNativeImage(),
+						createFromPath: () => new FakeNativeImage(),
 					},
 					remote: null,
 				},
 				modules: {
 					"@electron/remote": createBridgeNamespace(currentWindow, {
 						nativeImage: {
-							createFromDataURL: () => new FakeNativeImage(),
+							createFromPath: () => new FakeNativeImage(),
 						},
 					}),
 				},
@@ -262,7 +262,7 @@ void test("createDesktopRuntime rejects darwin nativeImage fallbacks without cre
 
 void test("createDesktopRuntime uses the renderer nativeImage as a fallback when the bridge does not expose one", () => {
 	const currentWindow = new FakeWindow(11);
-	const rendererNativeImage = createDarwinPathOnlyNativeImage();
+	const rendererNativeImage = createDataUrlOnlyNativeImage();
 	const runtime = assertAvailableRuntime(
 		createDesktopRuntime(
 		createEnvironment({
@@ -282,6 +282,37 @@ void test("createDesktopRuntime uses the renderer nativeImage as a fallback when
 
 	assert.equal(runtime.diagnostics.capabilitySources.nativeImage, "renderer-fallback");
 	assert.equal(runtime.nativeImage, rendererNativeImage);
+});
+
+void test("createDesktopRuntime prefers bridge nativeImage from getBuiltin over the renderer fallback", () => {
+	const currentWindow = new FakeWindow(11);
+	const rendererNativeImage = createDataUrlOnlyNativeImage();
+	const bridgeNativeImage = createNativeImageStatic();
+	const bridgeNamespace = createBridgeNamespace(currentWindow, {
+		nativeImage: undefined,
+	});
+	const originalGetBuiltin = bridgeNamespace.getBuiltin as (name: string) => unknown;
+	const runtime = assertAvailableRuntime(
+		createDesktopRuntime(
+			createEnvironment({
+				electronModule: {
+					nativeImage: rendererNativeImage,
+					remote: null,
+				},
+				modules: {
+					"@electron/remote": {
+						...bridgeNamespace,
+						getBuiltin: (name: string) =>
+							name === "nativeImage" ? bridgeNativeImage : originalGetBuiltin(name),
+					},
+				},
+				platform: "darwin",
+			}),
+		),
+	);
+
+	assert.equal(runtime.diagnostics.capabilitySources.nativeImage, "getBuiltin");
+	assert.equal(runtime.nativeImage, bridgeNativeImage);
 });
 
 void test("createDesktopRuntime rejects incomplete BrowserWindow proxies from the bridge", () => {

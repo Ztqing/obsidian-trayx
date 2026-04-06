@@ -1,6 +1,3 @@
-import { existsSync, statSync } from "fs";
-import * as path from "path";
-
 import type {
 	AvailableDesktopRuntime,
 	ElectronTray,
@@ -122,11 +119,6 @@ export class TrayService {
 				tray.setContextMenu?.(menu);
 			}
 			tray.on("click", () => {
-				if (isMac) {
-					options.actions.showVault();
-					return;
-				}
-
 				options.actions.toggleVaultVisibility();
 			});
 			tray.on("right-click", () => tray.popUpContextMenu(menu));
@@ -214,21 +206,7 @@ export class TrayService {
 	}
 
 	private getTrayAssetSignature(): string {
-		if (this.runtime.platform !== "darwin") {
-			return "data-url";
-		}
-
-		const assetPath = path.join(this.pluginDir, "trayTemplate.png");
-		if (!existsSync(assetPath)) {
-			return `${assetPath}:missing`;
-		}
-
-		try {
-			const stats = statSync(assetPath);
-			return `${assetPath}:${stats.size}:${stats.mtimeMs}`;
-		} catch {
-			return `${assetPath}:unreadable`;
-		}
+		return this.runtime.platform === "darwin" ? "generated-template-path" : "data-url";
 	}
 }
 

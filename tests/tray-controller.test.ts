@@ -664,12 +664,12 @@ void test("TrayController shows runtime diagnostics built from current tray and 
 	const harness = createControllerHarness({ runtime: available.runtime });
 	harness.trayService.snapshot = {
 		...createEmptyTraySnapshot(),
-		resolvedTrayIconPath: "/tmp/trayTemplate.png",
+		resolvedTrayIconPath: "/tmp/trayx-runtime/demo/trayTemplate.png",
 		trayBounds: { height: 16, width: 20, x: 1, y: 2 },
 		trayCreated: true,
 		trayIconEmpty: false,
 		trayIconExists: true,
-		trayIconMode: "file-template",
+		trayIconMode: "generated-template-path",
 		trayIconTemplate: true,
 		trayObjectCreated: true,
 	};
@@ -686,7 +686,7 @@ void test("TrayController shows runtime diagnostics built from current tray and 
 	assert.deepEqual(harness.noticeSink.notices, [
 		{
 			message:
-				"Bridge: host.remote | Platform: darwin | Obsidian: 1.10.3 | Sources: app=property | Tray: ready | Tray owner: 11 | Window: 11 | Tray icon: file-template | Tray path: /tmp/trayTemplate.png | Tray icon exists: true | Tray icon empty: false | Tray icon template: true | Tray bounds: 20x16@1,2 | Restore: tray | Close intercept: on | Fullscreen close pending: off | Fullscreen: off | Unload veto: off | Mode: full | Tray bridge is ready.",
+				"Bridge: host.remote | Platform: darwin | Obsidian: 1.10.3 | Sources: app=property | Tray: ready | Tray owner: 11 | Window: 11 | Tray icon: generated-template-path | Tray path: /tmp/trayx-runtime/demo/trayTemplate.png | Tray icon exists: true | Tray icon empty: false | Tray icon template: true | Tray bounds: 20x16@1,2 | Restore: tray | Close intercept: on | Fullscreen close pending: off | Fullscreen: off | Unload veto: off | Mode: full | Tray bridge is ready.",
 			timeout: 12000,
 		},
 	]);

@@ -70,9 +70,8 @@ export function readHostRemoteNamespace(value: unknown): Record<string, unknown>
 
 export function readNativeImage(
 	value: unknown,
-	platform: DesktopPlatform,
 ): ElectronNativeImageStatic | undefined {
-	return isElectronNativeImageStatic(value, platform) ? value : undefined;
+	return isElectronNativeImageStatic(value) ? value : undefined;
 }
 
 export function readHostVersion(app: ElectronApp | undefined): string | undefined {
@@ -175,7 +174,7 @@ export function resolveNativeImageCapability(options: {
 	rendererNativeImage: ElectronNativeImageStatic | undefined;
 }): ElectronNativeImageStatic | undefined {
 	if (options.mainProcessNativeImage) {
-		options.capabilitySources.nativeImage = "property";
+		options.capabilitySources.nativeImage ??= "property";
 		return options.mainProcessNativeImage;
 	}
 
@@ -250,6 +249,39 @@ export function readBridgeBuiltin<T>(
 	);
 }
 
+export function readOptionalBridgeBuiltin<T>(
+	name: Extract<RequiredCapabilityName, "nativeImage">,
+	namespace: RemoteBridgeNamespace,
+	validate: (value: unknown) => value is T,
+	bridgeErrors: string[],
+	capabilitySources: Partial<Record<RequiredCapabilityName, CapabilitySource>>,
+): T | undefined {
+	const getBuiltin = asFunction(namespace.getBuiltin);
+	if (getBuiltin) {
+		try {
+			const builtin = getBuiltin(name);
+			if (validate(builtin)) {
+				capabilitySources[name] = "getBuiltin";
+				return builtin;
+			}
+		} catch (error) {
+			bridgeErrors.push(`getBuiltin(${name}): ${toErrorMessage(error)}`);
+		}
+	}
+
+	try {
+		const value = namespace[name];
+		if (validate(value)) {
+			capabilitySources[name] = "property";
+			return value;
+		}
+	} catch (error) {
+		bridgeErrors.push(`${name}: ${toErrorMessage(error)}`);
+	}
+
+	return undefined;
+}
+
 export function readCurrentWindow(
 	namespace: RemoteBridgeNamespace,
 	validateWindow: (value: unknown) => value is ElectronWindow,
@@ -304,13 +336,10 @@ export function toErrorMessage(error: unknown): string {
 
 function isElectronNativeImageStatic(
 	value: unknown,
-	platform: DesktopPlatform,
 ): value is ElectronNativeImageStatic {
 	return (
 		typeof value === "object" &&
 		value !== null &&
-		(platform === "darwin"
-			? typeof (value as ElectronNativeImageStatic).createFromPath === "function"
-			: typeof (value as ElectronNativeImageStatic).createFromDataURL === "function")
+		typeof (value as ElectronNativeImageStatic).createFromDataURL === "function"
 	);
 }

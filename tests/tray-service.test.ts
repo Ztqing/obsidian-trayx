@@ -145,7 +145,7 @@ void test("TrayService refresh creates a tray and wires platform-specific click 
 		trayBounds: { height: 16, width: 16, x: 4, y: 8 },
 		trayCreated: true,
 		trayIconEmpty: null,
-		trayIconExists: false,
+		trayIconExists: true,
 		trayIconMode: "data-url",
 		trayIconTemplate: null,
 		trayObjectCreated: true,
@@ -156,38 +156,48 @@ void test("TrayService refresh creates a tray and wires platform-specific click 
 	assert.deepEqual(actions.calls, ["toggle"]);
 });
 
-void test("TrayService uses the absolute tray template path on macOS", () => {
+void test("TrayService uses an embedded template image on macOS", () => {
+	const createdTrays: FakeTray[] = [];
 	const createdInputs: Array<ElectronNativeImage | string> = [];
 	class CapturingTray extends FakeTray {
 		constructor(image: ElectronNativeImage | string) {
 			super();
 			createdInputs.push(image);
+			createdTrays.push(this);
 		}
 	}
 
+	const actions = createActions();
 	const service = new TrayService(createRuntime("darwin", CapturingTray), "/tmp/trayx-plugin");
 
 	const result = service.refresh({
-		actions: createActions(),
+		actions,
 		enabled: true,
 		isOwner: true,
 		toolTip: "TrayX: Demo",
 	});
 
 	assert.equal(result.ok, true);
-	assert.equal(createdInputs[0], "/tmp/trayx-plugin/trayTemplate.png");
+	const trayIconPath = createdInputs[0];
+	if (typeof trayIconPath !== "string") {
+		throw new Error("Expected the macOS tray input to be a string path.");
+	}
+	assert.match(trayIconPath, /trayTemplate\.png$/);
 	assert.deepEqual(service.getSnapshot(), {
 		lastRefreshAttempted: true,
 		lastTrayError: null,
-		resolvedTrayIconPath: "/tmp/trayx-plugin/trayTemplate.png",
+		resolvedTrayIconPath: trayIconPath,
 		trayBounds: { height: 16, width: 16, x: 4, y: 8 },
 		trayCreated: true,
 		trayIconEmpty: null,
-		trayIconExists: false,
-		trayIconMode: "file-template",
+		trayIconExists: true,
+		trayIconMode: "generated-template-path",
 		trayIconTemplate: true,
 		trayObjectCreated: true,
 	});
+
+	createdTrays[0]?.emit("click");
+	assert.deepEqual(actions.calls, ["toggle"]);
 });
 
 void test("TrayService keeps asset diagnostics when tray construction fails", () => {
@@ -209,15 +219,16 @@ void test("TrayService keeps asset diagnostics when tray construction fails", ()
 
 	assert.equal(result.ok, false);
 	assert.equal(result.error?.message, "tray failed");
+	assert.match(service.getSnapshot().resolvedTrayIconPath ?? "", /trayTemplate\.png$/);
 	assert.deepEqual(service.getSnapshot(), {
 		lastRefreshAttempted: true,
 		lastTrayError: "tray failed",
-		resolvedTrayIconPath: "/tmp/trayx-plugin/trayTemplate.png",
+		resolvedTrayIconPath: service.getSnapshot().resolvedTrayIconPath,
 		trayBounds: null,
 		trayCreated: false,
 		trayIconEmpty: null,
-		trayIconExists: false,
-		trayIconMode: "file-template",
+		trayIconExists: true,
+		trayIconMode: "generated-template-path",
 		trayIconTemplate: true,
 		trayObjectCreated: false,
 	});

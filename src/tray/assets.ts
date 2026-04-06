@@ -1,7 +1,17 @@
-import { existsSync } from "fs";
+import { createHash } from "crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import * as path from "path";
 
 import type { AvailableDesktopRuntime, ElectronNativeImage } from "../runtime/electron";
+
+const MACOS_TRAY_ICON_BASE64 =
+	"iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABC0lEQVR42mNgwA+0gHgaA5nAHIgfAPF/IDYhVbMnEL+Baj4NxKVA3EWs5gAg/grVDMJ5QHwMyg4hxoCdSJrvAHESEP+D8h8DsSAhA64gGbAYiGcg8b8DsRI+zRxAnAHEv6AaeoB4C5IBfwkFaBYQTwLiXqiGuVBX/EfChbg0swHxeah/o4D4PtT2KKQYAeG7QCyEzQAfJEUrgdgSiLOBOBOI44G4Fil2ZhAK/RtQzTD+byCeCcRpUP5CbAbMQ9LwCBoe/9FwCxC34YoJHiDeAFUISjiVWAx4D8RS+GIBZMgeIG4C4kNYDAAlJAFCCYkbiPWBeBUQHwXiV0gGrCMnV4oDsRcQrwViDXRJAMiJYFc6hS8nAAAAAElFTkSuQmCC";
+const MACOS_TRAY_ICON_2X_BASE64 =
+	"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACVElEQVR42sWXXyieURzH36uh1BCFJmpKYhKu/Ll0YaVsaa3FDcsi5V/KxrK1i5Wi1LJabFltartZrZZGrmSrRShJrEUIycXLGhK+p77q9HSec57nfZ733anPxfM+5/19v8/v/M6/QMBbSwNfwZPAf2iFYBVcgL/gViTFy8Euxa+oj5T4fXBoEReUgtugNpzizeBUIb7C929BMFzD8VwhfEUTSAD7fJ4D8X4JR4Ehjfgf9rEa/OCXgQaNuKAdXFcUpaDTDwMfNeIHTHWHzftjkO/VwIzGwGf2WdT08TQ9RWo3NcHrQBY40/Rp9GIglWm2C14AHhhq5LHXIagC/xSBT7kXdBkMvPIiXgaiwSObArsBug0GJkIVF8JrYJTP7yyBz0EOi0xnQEzPxFAM3JWC1LIgNyzBq0GRwUDIM2FKCrDDpfahJfAbroKbBgPLINaNeIliavXx3TqfT8AP/vaSm5DOxFM3BsYUAfaYhTvgHkgHMdJ/kkAl+ML6sP7/iMNlbFk84ai+okY6DbWBER7JPoFeSaBCUS+CWSdDMaBJ4zC4BrZt3p8zAykgE/x2OyMSNMEvuC+I9tMw3uKsmMFMyaenFtPXJxuKaYn9xh1MvV/s2yWZj3JSAy80QRfZZ9KBAUEPh2weFLuZBYM2AccdbL8y+8xqeigL0WtFwGesk6BDA55PRSNSILEw5VqWaCe0et2O3zPQdz5/cyEuFp+bfpyKR1lEZS6/fsHvu4GogWkW4RbPBDoDY+G8JcWBbF7VhmhKvjUFmbGINTHf80A/zTjaeC4BjPSbsTqzwkgAAAAASUVORK5CYII=";
+const MACOS_TRAY_ICON_DATA_URL = `data:image/png;base64,${MACOS_TRAY_ICON_BASE64}`;
+const MACOS_TRAY_ICON_FILENAME = "trayTemplate.png";
+const MACOS_TRAY_ICON_RETINA_FILENAME = "trayTemplate@2x.png";
 
 const WINDOWS_TRAY_ICON_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 1024 1024">
@@ -9,7 +19,7 @@ const WINDOWS_TRAY_ICON_SVG = `
 </svg>
 `;
 
-export type TrayIconMode = "data-url" | "file-template" | "none";
+export type TrayIconMode = "data-url" | "generated-template-path" | "none";
 
 export interface TrayAssetSnapshot {
 	resolvedTrayIconPath: string | null;
@@ -48,28 +58,29 @@ export function createEmptyTrayAssetSnapshot(): TrayAssetSnapshot {
 export function buildTrayImage(
 	runtime: AvailableDesktopRuntime,
 	pluginDir: string,
-	fileExists: (assetPath: string) => boolean = existsSync,
 ): TrayImageResult {
 	if (runtime.platform === "darwin") {
-		const assetPath = path.join(pluginDir, "trayTemplate.png");
-		const icon = runtime.nativeImage.createFromPath(assetPath);
+		const trayIconPath = ensureMacOsTrayIconPath(pluginDir);
+		const icon =
+			runtime.nativeImage.createFromPath?.(trayIconPath) ??
+			runtime.nativeImage.createFromDataURL(MACOS_TRAY_ICON_DATA_URL);
 		const snapshotBeforeTemplate: TrayAssetSnapshot = {
-			resolvedTrayIconPath: assetPath,
+			resolvedTrayIconPath: trayIconPath,
 			trayIconEmpty: icon.isEmpty?.() ?? null,
-			trayIconExists: fileExists(assetPath),
-			trayIconMode: "file-template",
-			trayIconTemplate: icon.isTemplateImage?.() ?? null,
+			trayIconExists: existsSync(trayIconPath),
+			trayIconMode: "generated-template-path",
+			trayIconTemplate: true,
 		};
 		if (snapshotBeforeTemplate.trayIconEmpty) {
-			throw new TrayImageError(`Tray template image is empty at ${assetPath}`, snapshotBeforeTemplate);
+			throw new TrayImageError("Generated tray template image is empty.", snapshotBeforeTemplate);
 		}
 
 		icon.setTemplateImage(true);
 		const snapshot: TrayAssetSnapshot = {
 			...snapshotBeforeTemplate,
-			trayIconTemplate: icon.isTemplateImage?.() ?? null,
+			trayIconTemplate: icon.isTemplateImage?.() ?? true,
 		};
-		return { image: icon, trayInput: assetPath, snapshot };
+		return { image: icon, trayInput: trayIconPath, snapshot };
 	}
 
 	const image = runtime.nativeImage
@@ -81,6 +92,7 @@ export function buildTrayImage(
 		trayInput: image,
 		snapshot: {
 			...createEmptyTrayAssetSnapshot(),
+			trayIconExists: true,
 			trayIconMode: "data-url",
 		},
 	};
@@ -88,4 +100,33 @@ export function buildTrayImage(
 
 function toDataUrl(svg: string): string {
 	return `data:image/svg+xml;base64,${Buffer.from(svg.trim()).toString("base64")}`;
+}
+
+function ensureMacOsTrayIconPath(pluginDir: string): string {
+	const runtimeDir = path.join(
+		tmpdir(),
+		"trayx-runtime",
+		createHash("sha1").update(pluginDir).digest("hex").slice(0, 12),
+	);
+	const trayIconPath = path.join(runtimeDir, MACOS_TRAY_ICON_FILENAME);
+	const retinaTrayIconPath = path.join(runtimeDir, MACOS_TRAY_ICON_RETINA_FILENAME);
+
+	mkdirSync(runtimeDir, { recursive: true });
+	writeBase64IfNeeded(trayIconPath, MACOS_TRAY_ICON_BASE64);
+	writeBase64IfNeeded(retinaTrayIconPath, MACOS_TRAY_ICON_2X_BASE64);
+
+	return trayIconPath;
+}
+
+function writeBase64IfNeeded(filePath: string, base64: string): void {
+	const buffer = Buffer.from(base64, "base64");
+
+	if (existsSync(filePath)) {
+		const existing = readFileSync(filePath);
+		if (existing.equals(buffer)) {
+			return;
+		}
+	}
+
+	writeFileSync(filePath, buffer);
 }

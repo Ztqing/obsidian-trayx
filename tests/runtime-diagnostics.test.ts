@@ -40,11 +40,11 @@ void test("buildRuntimeDiagnosticsPayload combines runtime, owner, tray, and lif
 		},
 		traySnapshot: {
 			...createEmptyTraySnapshot(),
-			resolvedTrayIconPath: "/tmp/trayTemplate.png",
+			resolvedTrayIconPath: "/tmp/trayx-runtime/demo/trayTemplate.png",
 			trayBounds: { height: 16, width: 16, x: 1, y: 2 },
 			trayCreated: true,
 			trayIconExists: true,
-			trayIconMode: "file-template",
+			trayIconMode: "generated-template-path",
 			trayIconTemplate: true,
 			trayObjectCreated: true,
 		},
@@ -155,8 +155,8 @@ void test("formatRuntimeDiagnosticsSummary includes all required diagnostics fie
 	assert.match(summary, /Tray: ready/);
 	assert.match(summary, /Tray owner: 11/);
 	assert.match(summary, /Window: 11/);
-	assert.match(summary, /Tray icon: file-template/);
-	assert.match(summary, /Tray path: \/tmp\/trayTemplate\.png/);
+	assert.match(summary, /Tray icon: generated-template-path/);
+	assert.match(summary, /Tray path: \/tmp\/trayx-runtime\/demo\/trayTemplate\.png/);
 	assert.match(summary, /Tray icon exists: true/);
 	assert.match(summary, /Tray icon empty: false/);
 	assert.match(summary, /Tray icon template: true/);
@@ -191,7 +191,7 @@ void test("formatRuntimeDiagnosticsSummary includes the tray template status whe
 			traySnapshot: {
 				...createEmptyTraySnapshot(),
 				trayCreated: true,
-				trayIconMode: "file-template",
+				trayIconMode: "generated-template-path",
 				trayIconTemplate: true,
 			},
 			restoreBlocker: null,
@@ -356,12 +356,12 @@ function createComprehensiveDiagnosticsOptions(): {
 		},
 		traySnapshot: {
 			...createEmptyTraySnapshot(),
-			resolvedTrayIconPath: "/tmp/trayTemplate.png",
+			resolvedTrayIconPath: "/tmp/trayx-runtime/demo/trayTemplate.png",
 			trayBounds: { height: 18, width: 20, x: 4, y: 8 },
 			trayCreated: true,
 			trayIconEmpty: false,
 			trayIconExists: true,
-			trayIconMode: "file-template",
+			trayIconMode: "generated-template-path",
 			trayIconTemplate: true,
 			trayObjectCreated: true,
 		},

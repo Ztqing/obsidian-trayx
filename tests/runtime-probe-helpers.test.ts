@@ -19,6 +19,7 @@ import {
 	readCapability,
 	readCurrentWindow,
 	readNativeImage,
+	readOptionalBridgeBuiltin,
 	resolveNativeImageCapability,
 } from "../src/runtime/probe-helpers";
 
@@ -90,9 +91,8 @@ void test("resolveNativeImageCapability prefers the bridge image and falls back 
 					return {};
 				},
 			},
-			"darwin",
-		),
-		undefined,
+		) !== undefined,
+		true,
 	);
 	assert.equal(
 		readNativeImage(
@@ -101,9 +101,8 @@ void test("resolveNativeImageCapability prefers the bridge image and falls back 
 					return {};
 				},
 			},
-			"darwin",
-		) !== undefined,
-		true,
+		),
+		undefined,
 	);
 });
 
@@ -167,6 +166,28 @@ void test("probe helper readers annotate capability sources and missing diagnost
 	);
 	assert.deepEqual(browserWindow, { window: true });
 	assert.equal(sources.BrowserWindow, "getBuiltin");
+
+	const nativeImage = readOptionalBridgeBuiltin(
+		"nativeImage",
+		{
+			getBuiltin: (name: string) =>
+				name === "nativeImage"
+					? {
+							createFromDataURL(): unknown {
+								return {};
+							},
+						}
+					: null,
+		},
+		(value): value is ElectronNativeImageStatic =>
+			typeof value === "object" &&
+			value !== null &&
+			typeof (value as ElectronNativeImageStatic).createFromDataURL === "function",
+		errors,
+		sources,
+	);
+	assert.ok(nativeImage);
+	assert.equal(sources.nativeImage, "getBuiltin");
 
 	const currentWindow = readCurrentWindow(
 		{

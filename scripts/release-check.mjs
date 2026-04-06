@@ -5,8 +5,6 @@ const requiredAssets = [
 	"main.js",
 	"manifest.json",
 	"styles.css",
-	"trayTemplate.png",
-	"trayTemplate@2x.png",
 ];
 
 const missingAssets = requiredAssets.filter((assetPath) => !existsSync(assetPath));

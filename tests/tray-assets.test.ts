@@ -1,4 +1,7 @@
 import * as assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "path";
 import { test } from "node:test";
 
 import type { AvailableDesktopRuntime } from "../src/runtime/electron";
@@ -33,7 +36,6 @@ class FakeNativeImage {
 
 function createRuntime(platform: AvailableDesktopRuntime["platform"], nativeImageFactory?: FakeNativeImage) {
 	const dataUrlImage = nativeImageFactory ?? new FakeNativeImage(false);
-	const pathImage = nativeImageFactory ?? new FakeNativeImage(false);
 	let lastDataUrl = "";
 	let lastPath = "";
 
@@ -83,9 +85,9 @@ function createRuntime(platform: AvailableDesktopRuntime["platform"], nativeImag
 					lastDataUrl = dataUrl;
 					return dataUrlImage;
 				},
-				createFromPath: (assetPath: string) => {
-					lastPath = assetPath;
-					return pathImage;
+				createFromPath: (imagePath: string) => {
+					lastPath = imagePath;
+					return dataUrlImage;
 				},
 			},
 			platform,
@@ -97,25 +99,28 @@ function createRuntime(platform: AvailableDesktopRuntime["platform"], nativeImag
 				setToolTip(): void {}
 			},
 		} satisfies AvailableDesktopRuntime,
+		dataUrlImage,
 		getLastDataUrl: () => lastDataUrl,
 		getLastPath: () => lastPath,
-		pathImage,
 	};
 }
 
-void test("buildTrayImage resolves the macOS asset path and marks template images", () => {
-	const { runtime, getLastPath, pathImage } = createRuntime("darwin");
+void test("buildTrayImage materializes a macOS template icon path for tray creation", () => {
+	const pluginDir = path.join(tmpdir(), "trayx-test-plugin-assets");
+	const { runtime, getLastDataUrl, getLastPath, dataUrlImage } = createRuntime("darwin");
 
-	const result = buildTrayImage(runtime, "/tmp/trayx-plugin", () => true);
+	const result = buildTrayImage(runtime, pluginDir);
 
-	assert.equal(result.snapshot.trayIconMode, "file-template");
-	assert.equal(result.snapshot.resolvedTrayIconPath, "/tmp/trayx-plugin/trayTemplate.png");
+	assert.equal(result.snapshot.trayIconMode, "generated-template-path");
+	assert.equal(typeof result.snapshot.resolvedTrayIconPath, "string");
 	assert.equal(result.snapshot.trayIconExists, true);
 	assert.equal(result.snapshot.trayIconEmpty, false);
 	assert.equal(result.snapshot.trayIconTemplate, true);
-	assert.equal(result.trayInput, "/tmp/trayx-plugin/trayTemplate.png");
-	assert.equal(getLastPath(), "/tmp/trayx-plugin/trayTemplate.png");
-	assert.equal(pathImage.templateImage, true);
+	assert.equal(result.trayInput, result.snapshot.resolvedTrayIconPath);
+	assert.match(getLastPath(), /trayTemplate\.png$/);
+	assert.equal(existsSync(getLastPath()), true);
+	assert.equal(getLastDataUrl(), "");
+	assert.equal(dataUrlImage.templateImage, true);
 });
 
 void test("buildTrayImage uses a resized data-url icon on non-macOS platforms", () => {
@@ -124,21 +129,23 @@ void test("buildTrayImage uses a resized data-url icon on non-macOS platforms", 
 	const result = buildTrayImage(runtime, "/tmp/trayx-plugin");
 
 	assert.equal(result.snapshot.trayIconMode, "data-url");
+	assert.equal(result.snapshot.trayIconExists, true);
 	assert.equal(result.trayInput, result.image);
 	assert.match(getLastDataUrl(), /^data:image\/svg\+xml;base64,/);
 });
 
-void test("buildTrayImage preserves asset diagnostics when the macOS icon is empty", () => {
+void test("buildTrayImage preserves diagnostics when the macOS generated icon is empty", () => {
 	const { runtime } = createRuntime("darwin", new FakeNativeImage(true));
 
 	assert.throws(
-		() => buildTrayImage(runtime, "/tmp/trayx-plugin", () => false),
+		() => buildTrayImage(runtime, "/tmp/trayx-plugin"),
 		(error: unknown) => {
 			assert.ok(error instanceof TrayImageError);
-			assert.equal(error.snapshot.resolvedTrayIconPath, "/tmp/trayx-plugin/trayTemplate.png");
-			assert.equal(error.snapshot.trayIconExists, false);
+			assert.match(error.snapshot.resolvedTrayIconPath ?? "", /trayTemplate\.png$/);
+			assert.equal(error.snapshot.trayIconExists, true);
 			assert.equal(error.snapshot.trayIconEmpty, true);
-			assert.equal(error.snapshot.trayIconTemplate, false);
+			assert.equal(error.snapshot.trayIconTemplate, true);
+			assert.equal(error.snapshot.trayIconMode, "generated-template-path");
 			return true;
 		},
 	);

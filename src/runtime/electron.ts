@@ -19,6 +19,7 @@ import {
 	readCurrentWindow,
 	readHostRemoteNamespace,
 	readHostVersion,
+	readOptionalBridgeBuiltin,
 	readNativeImage,
 	resolveNativeImageCapability,
 	toErrorMessage,
@@ -80,6 +81,13 @@ export interface LoginItemSettings {
 }
 
 export interface ElectronNativeImage {
+	addRepresentation?(options: {
+		buffer?: Buffer;
+		dataURL?: string;
+		height?: number;
+		scaleFactor?: number;
+		width?: number;
+	}): void;
 	isEmpty?(): boolean;
 	isTemplateImage?(): boolean;
 	resize(options: { height?: number; quality?: "good" | "better" | "best"; width: number }): ElectronNativeImage;
@@ -88,7 +96,7 @@ export interface ElectronNativeImage {
 
 export interface ElectronNativeImageStatic {
 	createFromDataURL(dataUrl: string): ElectronNativeImage;
-	createFromPath(path: string): ElectronNativeImage;
+	createFromPath?(path: string): ElectronNativeImage;
 }
 
 export interface MenuItemConstructorOptions {
@@ -331,7 +339,13 @@ function probeNamedBridge(
 	);
 	const nativeImage = resolveNativeImageCapability({
 		capabilitySources,
-		mainProcessNativeImage: readNativeImage(namespace.nativeImage, platform),
+		mainProcessNativeImage: readOptionalBridgeBuiltin(
+			"nativeImage",
+			bridge,
+			(value): value is ElectronNativeImageStatic => readNativeImage(value) !== undefined,
+			bridgeErrors,
+			capabilitySources,
+		),
 		missingCapabilities,
 		notes,
 		rendererNativeImage,
@@ -389,7 +403,7 @@ function buildBridgeAttempts(options: {
 	environment: ResolvedDesktopRuntimeEnvironment;
 	platform: DesktopPlatform;
 }): BridgeProbeResult[] {
-	const rendererNativeImage = readNativeImage(options.electron.nativeImage, options.platform);
+	const rendererNativeImage = readNativeImage(options.electron.nativeImage);
 	return [
 		probeElectronRemotePackage(options.environment, options.platform, rendererNativeImage),
 		probeNamedBridge(
