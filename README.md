@@ -40,8 +40,8 @@ The roadmap prioritizes desktop stability, observability, and predictable recove
 ## Platform and runtime notes
 
 - TrayX is desktop-only because it relies on Electron and Node APIs.
-- macOS uses `trayTemplate.png` and `trayTemplate@2x.png` from the plugin root as adaptive template menu bar assets.
-- macOS interaction keeps left-click restore or show and right-click tray menu behavior.
+- macOS uses an embedded template menu bar icon generated at runtime, so release builds do not depend on extra tray image files.
+- macOS interaction keeps left-click toggle behavior and right-click tray menu behavior.
 - Windows uses a generated tray icon and keeps click-to-toggle plus context-menu access.
 - Hiding the app icon is app-wide on macOS and affects Dock visibility for the whole Obsidian app, not just one vault.
 - Tray ownership is synchronized per vault so only one live window is responsible for the tray at a time.
@@ -60,7 +60,7 @@ The roadmap prioritizes desktop stability, observability, and predictable recove
 For manual installation or GitHub release builds:
 
 1. Create or open `<vault>/.obsidian/plugins/trayx/`.
-2. Copy `main.js`, `manifest.json`, `styles.css`, `trayTemplate.png`, and `trayTemplate@2x.png` into that folder.
+2. Copy `main.js`, `manifest.json`, and `styles.css` into that folder.
 3. Reload Obsidian and enable **TrayX** in the community plugins settings for that vault.
 
 ## Settings
@@ -96,7 +96,7 @@ TrayX does not register default hotkeys. You can assign your own shortcuts in **
 - restore path
 - restore blocker
 - close interception state
-- tray path
+- tray path, when the icon is file-backed
 - `trayIconExists`
 - `trayIconEmpty`
 - `trayIconTemplate`
@@ -138,8 +138,6 @@ For manual installation or release builds, copy these files into:
 - `main.js`
 - `manifest.json`
 - `styles.css`
-- `trayTemplate.png`
-- `trayTemplate@2x.png`
 
 ## Release checklist
 
@@ -160,12 +158,12 @@ Then verify in a clean desktop vault:
 - `Cmd+W` close and restore behavior still works as expected
 - `Cmd+Q` and app-menu quit still work correctly
 - repeated close and restore cycles do not create duplicate trays
-- on macOS, the tray asset path is absolute and the template icon is healthy
+- on macOS, the generated template tray icon is healthy
 - on Windows, the tray icon remains legible at small sizes
 
 After that release validation passes:
 
-- create and push the annotated release tag, for example `v1.0.0`
+- create and push the annotated release tag, for example `1.0.0`
 - upload the verified release asset set from the clean build output
 
 ## Privacy and safety

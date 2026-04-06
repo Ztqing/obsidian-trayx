@@ -11,11 +11,13 @@ All notable user-facing changes for this plugin are documented in this file.
 - Settings for tray icon visibility, background running, hide on launch, launch on startup, and hiding the app icon while TrayX is active.
 - Runtime diagnostics covering bridge choice, capability sources, tray readiness, tray owner, restore path, close interception state, tray icon path and health, and tray bounds.
 - English and Simplified Chinese runtime localization that follows Obsidian's default language, mapping all `zh*` locales to Simplified Chinese.
-- Release artifacts for `main.js`, `manifest.json`, `styles.css`, `trayTemplate.png`, and `trayTemplate@2x.png`.
+- Release artifacts for `main.js`, `manifest.json`, and `styles.css`.
 
 ### Changed
 
 - Hide-on-launch now follows the actual runtime mode: it minimizes in foreground-only mode and hides only when background recovery is available.
+- macOS now generates its template tray icon at runtime, so community-store installs no longer depend on extra PNG assets.
+- macOS tray clicks now toggle vault visibility directly, while right-click still opens the tray menu.
 - Runtime diagnostics now expose the latest tray refresh error and restore blocker so degraded restore behavior is easier to explain.
 - Tray controller reconciliation now reruns when tracked window topology changes, helping the current window reclaim tray ownership after a stale owner disappears.
 - Release readiness now pins the Obsidian dependency to `1.10.3`, adds a `release:check` gate, and aligns CI with the documented `test:unit` / `lint` / `build` flow.
